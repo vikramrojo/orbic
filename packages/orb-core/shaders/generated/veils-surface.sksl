@@ -1,0 +1,379 @@
+// Orbic shader preamble — SkSL (Skia RuntimeEffect).
+//
+// Declares the frozen four-channel uniform ABI as globals (SkSL, like GLSL,
+// reads uniforms as globals) and the portable-subset shims. A field or
+// compositor body never declares a `uniform` itself — see
+// docs/shader-abi.md. Written in GLSL-style vecN syntax deliberately: SkSL
+// accepts GLSL's vecN/matN names as built-in aliases for its own floatN/
+// floatNxN types, which is what lets a single field/compositor source file
+// run unmodified under both GLSL and SkSL.
+
+uniform float2 u_resolution;
+uniform float u_time;
+uniform float u_energy;
+uniform float u_coherence;
+uniform float u_warmth;
+uniform float u_pulse;
+
+// True modulo (result takes the sign of `y`), defined explicitly rather than
+// assumed equivalent to any native function, so all three targets agree on
+// exactly the same formula.
+float oMod(float x, float y) {
+    return x - y * floor(x / y);
+}
+
+vec2 oMod(vec2 x, vec2 y) {
+    return x - y * floor(x / y);
+}
+
+// Two-argument arctangent, spelled `atan(y, x)` in SkSL just as in GLSL.
+float oAtan2(float y, float x) {
+    return atan(y, x);
+}
+
+// Shifting Veils — adapted from pbakaus/radiant
+// (https://github.com/pbakaus/radiant), MIT licensed. Original author:
+// Paul Bakaus. Source: static/shifting-veils.html.
+//
+// Adaptations for the Orbic shader ABI (see docs/shader-abi.md):
+//   - Coordinate setup deleted entirely and replaced with the incoming
+//     world-space `p`. The original computed `p = uv * aspect` with no
+//     centring at all (origin at the corner) — the most broken of the
+//     three sources' coordinate conventions. Every place the original
+//     re-derived a centred coordinate from this (via `p - 0.5*aspect`, or
+//     `center = (uv-0.5)*aspect` and then dividing by `aspect` again to
+//     partially undo its own stretch, just for the vignette) collapses to
+//     using `p` directly, since `p` already *is* that centred,
+//     non-stretched coordinate.
+//   - `u_mouse`-driven veil shift removed; meaningless on a static Surface.
+//   - `#define PI` / `#define TAU` removed — unused anywhere in the
+//     original body. `hash3` removed for the same reason (declared, never
+//     called, in the original source itself).
+//   - `u_layerSpeed` -> `pulse` (native).
+//   - `u_layerCount` -> `coherence`, inverted: more layers is a busier,
+//     denser composite, i.e. *lower* coherence. The loop itself keeps a
+//     compile-time constant bound (`VEIL_LAYER_COUNT`); the
+//     `coherence`-derived count only changes the `break` threshold inside
+//     it, per the ABI's portable-subset rule (docs/shader-abi.md) — bounded
+//     loop, dynamic early-out.
+//   - `energy` has no native source in this field; grafted onto overall
+//     veil opacity, so higher energy reads as richer, more opaque curtains
+//     rather than sheer, faint ones.
+//   - `warmth` grafted as a cool (slate/steel/violet) <-> warm (the
+//     original's sepia-to-cream amber progression) pair per layer,
+//     continuous. No radiant field has a native warmth concept (see
+//     docs/shader-abi.md); this is original palette authoring.
+//   - Grain: the original has none (unusually, among the three sources) —
+//     a modest one is added here for consistency with the other two
+//     shipped fields and with the legibility-risk assumption in
+//     design.md that every field carries some grain for the surface
+//     compositor to attenuate. Necessarily `p`-based rather than
+//     `gl_FragCoord`-based, since `field()` has no device-pixel input.
+//   - The original's radial vignette (`vig = 1.0 - dot(p,p)*0.6`, an
+//     unbounded quadratic mask with no floor) and its "atmospheric glow"
+//     (a Gaussian centred at the origin) were both dropped, not ported.
+//     Both are origin-centred effects the original calibrated for its own
+//     small (roughly +/-0.5) coordinate range; at this field's actual
+//     world-space magnitudes -- particularly `SURFACE_SCALE`, several
+//     times larger -- `dot(p,p)*0.6` saturates to a hard-zero mask well
+//     inside the visible frame, e.g. `dot(p,p) = 9` at `p = (+/-3, 0)`,
+//     giving `vig = -4.4`, clamped to 0 -- so the vignette alone blacked
+//     out the horizontal edges of any wide Surface, producing a stranded
+//     bright blob at the centre (measured 4.6x centre-vs-edge luminance,
+//     against ~1x for Chladni and ~1.5x for Silk, both of which lack this
+//     unbounded-mask structure). Same category of fix as Chladni's dropped
+//     plate mask: shape/brightness masking that only reads correctly at
+//     the original's small intended scale doesn't survive being rendered
+//     as an extended material at Surface scale, and the layered veils
+//     already carry the field's character without it.
+
+float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+
+float vnoise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    float a = hash(i);
+    float b = hash(i + vec2(1.0, 0.0));
+    float c = hash(i + vec2(0.0, 1.0));
+    float d = hash(i + vec2(1.0, 1.0));
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+const int VEIL_FBM_OCTAVES = 5;
+
+float fbm(vec2 p) {
+    float val = 0.0;
+    float amp = 0.5;
+    float freq = 1.0;
+    for (int i = 0; i < VEIL_FBM_OCTAVES; i++) {
+        val += amp * vnoise(p * freq);
+        freq *= 2.0;
+        amp *= 0.5;
+    }
+    return val;
+}
+
+// Domain-warped noise for organic flowing shapes.
+float warpedNoise(vec2 p, float t, float seed) {
+    vec2 q = vec2(
+        fbm(p + vec2(seed * 1.7, seed * 2.3) + t * 0.15),
+        fbm(p + vec2(seed * 3.1 + 5.2, seed * 1.3 + 1.3) + t * 0.12)
+    );
+    vec2 r = vec2(
+        fbm(p + 4.0 * q + vec2(1.7, 9.2) + t * 0.08),
+        fbm(p + 4.0 * q + vec2(8.3, 2.8) + t * 0.1)
+    );
+    return fbm(p + 3.5 * r);
+}
+
+mat2 rot2(float a) {
+    float c = cos(a), s = sin(a);
+    return mat2(c, -s, s, c);
+}
+
+const int VEIL_LAYER_COUNT = 7;
+
+vec3 field(vec2 p, float t, float energy, float coherence, float warmth, float pulse) {
+    float clock = t * pulse;
+
+    // More layers is busier/denser, i.e. lower coherence.
+    float layerCount = mix(7.0, 2.0, coherence);
+
+    // Dark background base — cool slate <-> the original's warm sepia.
+    vec3 col = mix(vec3(0.02, 0.03, 0.045), vec3(0.012, 0.01, 0.008), warmth);
+
+    // Accumulate colour from back to front. Loop bound is the compile-time
+    // constant VEIL_LAYER_COUNT; layerCount only drives the early-out below.
+    for (int i = 0; i < VEIL_LAYER_COUNT; i++) {
+        if (float(i) >= layerCount) break;
+
+        float fi = float(i);
+        float layerFrac = fi / max(layerCount - 1.0, 1.0);
+
+        // Each layer has unique movement: different speed, direction, scale.
+        float speed = 0.3 + fi * 0.12;
+        float scale = 1.8 + fi * 0.7;
+        float angle = fi * 0.7 + 0.3;
+
+        // Parallax offset — deeper layers move slower.
+        float parallax = 0.3 + layerFrac * 0.7;
+
+        vec2 drift = vec2(
+            cos(angle) * speed * clock * parallax,
+            sin(angle) * speed * clock * parallax * 0.7
+        );
+
+        // Rotate coordinates slightly per layer for variety.
+        vec2 lp = p * rot2(fi * 0.4 + clock * 0.02 * (fi - 2.5));
+        lp = lp * scale + drift;
+
+        // Domain-warped noise for flowing veil shape.
+        float n = warpedNoise(lp, clock * (0.8 + fi * 0.15), fi * 3.7 + 1.0);
+
+        // Shape the veil: soft edges, flowing contours.
+        float veil = smoothstep(0.25, 0.55, n);
+        veil *= smoothstep(0.85, 0.6, n);
+        float broad = smoothstep(0.2, 0.7, n) * 0.5;
+        veil = max(veil, broad);
+
+        // Occasional transparency fade — reveals deeper layers.
+        float fadePhase = clock * 0.15 + fi * 1.3;
+        float fadeCycle = sin(fadePhase) * 0.5 + 0.5;
+        float reveal = smoothstep(0.0, 0.3, fadeCycle);
+        float opacity = mix(0.08, 0.55, reveal);
+
+        // Deeper layers slightly more opaque to build depth.
+        opacity *= (0.6 + 0.4 * (1.0 - layerFrac));
+
+        // Energy has no native source here; grafted onto overall opacity.
+        opacity *= mix(0.5, 1.3, energy);
+
+        // Layer colour from the amber family (warm) or slate family (cool).
+        vec3 layerColorCool;
+        vec3 layerColorWarm;
+        if (i == 0) {
+            layerColorCool = vec3(0.05, 0.07, 0.11);
+            layerColorWarm = vec3(0.12, 0.07, 0.04);
+        } else if (i == 1) {
+            layerColorCool = vec3(0.08, 0.11, 0.18);
+            layerColorWarm = vec3(0.22, 0.12, 0.06);
+        } else if (i == 2) {
+            layerColorCool = vec3(0.14, 0.19, 0.30);
+            layerColorWarm = vec3(0.45, 0.25, 0.12);
+        } else if (i == 3) {
+            layerColorCool = vec3(0.22, 0.28, 0.42);
+            layerColorWarm = vec3(0.65, 0.42, 0.15);
+        } else if (i == 4) {
+            layerColorCool = vec3(0.32, 0.40, 0.55);
+            layerColorWarm = vec3(0.78, 0.55, 0.22);
+        } else if (i == 5) {
+            layerColorCool = vec3(0.45, 0.53, 0.68);
+            layerColorWarm = vec3(0.85, 0.65, 0.35);
+        } else {
+            layerColorCool = vec3(0.60, 0.68, 0.80);
+            layerColorWarm = vec3(0.9, 0.75, 0.5);
+        }
+        vec3 layerColor = mix(layerColorCool, layerColorWarm, warmth);
+
+        // Subtle colour variation within each layer.
+        float colorShift = sin(n * 6.0 + clock * 0.3 + fi * 2.0) * 0.05;
+        layerColor += colorShift;
+
+        // Subtle inner glow at veil edges.
+        float edgeGlow = smoothstep(0.0, 0.15, veil) * smoothstep(0.5, 0.25, veil);
+        vec3 glowColor = layerColor * 1.4 + vec3(0.1, 0.06, 0.02);
+        layerColor = mix(layerColor, glowColor, edgeGlow * 0.5);
+
+        // Composite this layer over the accumulated colour.
+        float alpha = veil * opacity;
+        col = mix(col, layerColor, alpha);
+    }
+
+    // Subtle breathing pulse on the whole image — runs at a fixed rate,
+    // independent of `pulse`, matching the original's use of raw time here.
+    float breathe = sin(t * 0.2) * 0.02 + 1.0;
+    col *= breathe;
+
+    // Tone mapping (subtle, keep the dark mood).
+    col = col / (col + 0.5) * 1.1;
+
+    // Slight warmth push.
+    col = pow(col, vec3(0.95, 0.98, 1.05));
+
+    // Grain — see header note: added here (the original has none) for
+    // consistency with the other two fields, and kept modest.
+    float grain = hash(p * 700.0 + clock * 11.0);
+    col += (grain - 0.5) * 0.01;
+
+    return clamp(col, 0.0, 1.0);
+}
+
+
+// Real surface compositor (task 6.4): a full-bleed, always-static
+// background that must recede behind body text rather than draw attention
+// to itself (see docs/shader-abi.md and design.md's "two visual jobs at
+// once" framing). Two mechanisms, each doing one job:
+//
+//   1. A small multi-tap spatial average of `field()` — NOT a second
+//      render pass (there is still exactly one fragment shader invocation
+//      per pixel; this just calls the same portable `field()` a few more
+//      times at nearby world-space offsets and averages the results), so
+//      it doesn't fork the shader core the way a real bloom/blur pass
+//      would (see design.md decision #10 on why multi-pass is rejected).
+//      This is the *only* way this file can achieve "octave/detail
+//      reduction" at all: composite() has no access to field()'s internal
+//      noise octaves, so the only lever available from this side of the
+//      contract is spatial averaging, which low-pass-filters whatever
+//      detail field() produced. The same averaging also attenuates
+//      per-pixel hash grain, since nearby grain samples are decorrelated
+//      and their average trends toward the grain's mean — one mechanism
+//      serving both the "octave/detail reduction" and "grain attenuation"
+//      requirements in specs/surface-component/spec.md.
+//   2. Contrast damping — the blurred colour is pulled toward a fixed dark
+//      anchor tone, compressing the field's dynamic range.
+//
+// A Surface is static (rendered once, never re-evaluated per frame — see
+// design.md decision #9), so the extra `field()` evaluations here are a
+// one-time cost, not a per-frame one; this trade would not be acceptable
+// in the animated orb compositor and is not made there.
+//
+// Returns PREMULTIPLIED colour and alpha (`vec4(rgb * a, a)`), per the
+// two-function contract in docs/shader-abi.md. Alpha is always 1.0 here —
+// a Surface is a full-bleed background, not a masked shape — but it is
+// still returned premultiplied so both compositors obey one convention.
+//
+// --- Luminance band (tuned against real renders — see handback) ---------
+// specs/surface-component/spec.md requires TWO things about brightness,
+// not one, and they bound this from opposite sides:
+//   - a CEILING: WCAG AA 4.5:1 between this compositor's *brightest*
+//     rendered luminance and the body-text colour, checked against the max
+//     rather than the mean, so one hotspot can't pass on a good average.
+//   - a FLOOR ("the field must remain perceptible"): rendered luminance
+//     range must span at least a defined minimum, because a contrast
+//     floor alone is satisfied vacuously by a near-black surface — that
+//     passes legibility while destroying the entire premise that a
+//     Surface is the Orb's material seen from further away.
+//
+// A single LINEAR mix toward a fixed anchor tone (an earlier version of
+// this file used `mix(base, blurred, contrast)`) cannot satisfy both at
+// once, because the shipped fields' own post-blur brightest points are far
+// apart: measured directly (bypassing this file's damping), Veils peaks
+// around 0.18-0.28, while Chladni and Silk's brightest presets reach
+// 0.82-0.92 -- almost the full [0,1] range field() is allowed to use. Any
+// single linear (base, contrast) pair that lifts Veils to something
+// visible pushes Chladni/Silk's already-bright peaks straight past the
+// WCAG ceiling (measured: contrast 0.62 lifted Veils to a visible ~13:1,
+// but put Chladni's brightest preset at 3.09:1, failing the 4.5:1 floor
+// outright). And a pair chosen to keep Chladni safe leaves Veils at
+// visually-black RGB(30,31,35) -- the over-damping this section originally
+// shipped with.
+//
+// So this compresses instead of linearly mixing: a Reinhard-style knee,
+// `gained / (1 + gained * SURFACE_KNEE)`, which behaves close to linear
+// for small inputs (so dim background areas between veils/folds keep their
+// own relative detail — the "range" the perceptibility floor cares about)
+// but compresses hard as input grows, pulling bright fields' peaks down
+// disproportionately more than dim fields' peaks. `SURFACE_GAIN` and
+// `SURFACE_KNEE` were solved from two real measured points -- Veils'
+// dimmest realistic peak (~0.20) and Chladni/Silk's brightest (~0.90) --
+// so that both land inside a visible-but-safe band (~0.22 and ~0.35 in
+// output-channel terms respectively, roughly 7-12:1 against white body
+// text) rather than one of them sitting at either extreme. See
+// tools/render-check/contrast-check.mjs's `checkPerceptibility` for the
+// floor, `checkContrast` for the ceiling, and its printed table for the
+// current measured range of every field x preset combination.
+
+const float SURFACE_GAIN = 2.3;
+const float SURFACE_KNEE = 2.4;
+
+// World-space offset for the 5-tap blur, chosen relative to the shipped
+// fields' own grain frequency (their grain hashes multiply `p` by roughly
+// 600-900) so this radius spans several grain cells rather than sitting
+// inside a single one. Provisional: the surface epilogue's own `scale`
+// (task 7.x) is not fixed yet, and this constant should be re-checked
+// once it is and once a renderer exists to look at the result.
+const float SURFACE_BLUR_RADIUS = 0.006;
+
+vec4 composite(vec2 p, float t, float energy, float coherence, float warmth, float pulse) {
+    vec3 c0 = field(p, t, energy, coherence, warmth, pulse);
+    vec3 c1 = field(p + vec2(SURFACE_BLUR_RADIUS, SURFACE_BLUR_RADIUS), t, energy, coherence, warmth, pulse);
+    vec3 c2 = field(p + vec2(-SURFACE_BLUR_RADIUS, SURFACE_BLUR_RADIUS), t, energy, coherence, warmth, pulse);
+    vec3 c3 = field(p + vec2(SURFACE_BLUR_RADIUS, -SURFACE_BLUR_RADIUS), t, energy, coherence, warmth, pulse);
+    vec3 c4 = field(p + vec2(-SURFACE_BLUR_RADIUS, -SURFACE_BLUR_RADIUS), t, energy, coherence, warmth, pulse);
+
+    vec3 blurred = (c0 + c1 + c2 + c3 + c4) / 5.0;
+
+    // Contrast damping: a Reinhard-style compressive knee (see header) —
+    // lifts dim fields toward visibility while compressing bright fields'
+    // peaks so they don't blow past the legibility ceiling.
+    vec3 gained = blurred * SURFACE_GAIN;
+    vec3 damped = gained / (1.0 + gained * SURFACE_KNEE);
+
+    float alpha = 1.0;
+    return vec4(damped * alpha, alpha);
+}
+
+
+// Orbic epilogue — surface shape, SkSL (Skia RuntimeEffect).
+//
+// Maps the fragment coordinate into aspect-preserving world space at
+// surface scale (zoomed further out than the orb — see docs/shader-abi.md)
+// and calls the compositor.
+//
+// NOTE: coordinate-origin parity with GLSL/Metal is NOT independently
+// verified here — see the equivalent note in epilogue-orb.sksl. `u_time` is
+// assumed already wrapped (at 3600 s) by the caller.
+//
+// u_scale is surface-specific, exposed as the Surface component's public
+// `scale` prop (surface-component spec) — see the equivalent note in
+// epilogue-surface.glsl. Default 3.0, matching the previous hardcoded value.
+
+uniform float u_scale;
+
+half4 main(float2 fragCoord) {
+    vec2 p = (fragCoord - 0.5 * u_resolution) / min(u_resolution.x, u_resolution.y) * u_scale;
+    return half4(composite(p, u_time, u_energy, u_coherence, u_warmth, u_pulse));
+}
