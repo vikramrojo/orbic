@@ -1,0 +1,23 @@
+# Swift / Xcode
+.build/
+.swiftpm/
+*.xcodeproj
+DerivedData/
+
+# Node / pnpm
+node_modules/
+dist/
+.turbo/
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Build info
+*.tsbuildinfo
