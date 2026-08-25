@@ -1,0 +1,258 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PNPM_VERSION: "10"
+  NODE_VERSION: "24"
+
+jobs:
+  # --- Lint -----------------------------------------------------------------
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      # No pnpm install needed above this line: path-case checking only
+      # needs `git` and Node's own standard library, and must run
+      # regardless of whether the JS workspace itself is bootstrapped yet.
+      #
+      # This exists because `test-swift` runs on `macos-14`, which — like
+      # every default macOS filesystem — is case-INSENSITIVE, and therefore
+      # cannot catch a tracked-path casing mismatch: the checkout there will
+      # silently fold e.g. `Tests/OrbicTests` and `tests/OrbicTests`
+      # together and build as if nothing were wrong. Only a check that reads
+      # git's recorded index directly (as this one does, not the local
+      # filesystem's view of it) can catch this, on any runner. Do not
+      # remove this as "redundant with test-swift" — it is the only thing
+      # standing in for a case-sensitive CI runner, which this project does
+      # not otherwise have.
+      - name: Check for tracked path-case collisions and SwiftPM layout casing
+        run: node scripts/check-path-case.mjs
+
+      - name: Install dependencies
+        run: |
+          if [ -f pnpm-lock.yaml ]; then
+            pnpm install --frozen-lockfile
+          else
+            echo "::warning::no pnpm-lock.yaml yet — skipping install (expected until the workspace scaffold lands)"
+          fi
+
+      - name: Run lint
+        run: |
+          if [ -f package.json ] && jq -e '.scripts.lint' package.json > /dev/null 2>&1; then
+            pnpm run lint
+          else
+            echo "::warning::lint SKELETON — no root \"lint\" script found yet. This step is a placeholder, not a passing lint run."
+          fi
+
+  # --- Test: TypeScript ------------------------------------------------------
+  # Vitest is platform-independent, so this stays on the cheaper Linux runner
+  # rather than sharing a runner with the Swift tests below.
+  test-js:
+    name: Test (TypeScript)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install JS/TS dependencies
+        run: |
+          if [ -f pnpm-lock.yaml ]; then
+            pnpm install --frozen-lockfile
+          else
+            echo "::warning::no pnpm-lock.yaml yet — skipping install (expected until the workspace scaffold lands)"
+          fi
+
+      - name: Run JS/TS tests (Vitest)
+        run: |
+          if [ -f package.json ] && jq -e '.scripts.test' package.json > /dev/null 2>&1; then
+            pnpm run test
+          else
+            echo "::warning::TypeScript test SKELETON — no root \"test\" script found yet. This step is a placeholder, not a passing test run."
+          fi
+
+  # --- Test: Swift -------------------------------------------------------------
+  # Runs on macOS because the Swift package targets Apple-only frameworks
+  # (SwiftUI / Metal) once the renderer lands.
+  #
+  # NOTE: macos-14 is case-INSENSITIVE, so this job cannot detect a tracked
+  # path whose casing doesn't match what SwiftPM expects by convention (e.g.
+  # `tests/OrbicTests` recorded in git where `Tests/OrbicTests` was
+  # intended) — the checkout here silently folds the two together and
+  # builds as if nothing were wrong, exactly as it does on a developer's own
+  # Mac. That class of bug is caught by `check-path-case.mjs` in the `lint`
+  # job instead, which reads git's recorded index rather than the local
+  # filesystem. Do not delete that check on the theory that this job already
+  # covers Swift correctness — it covers something disjoint.
+  test-swift:
+    name: Test (Swift)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Swift build
+        run: swift build
+
+      - name: Swift tests
+        run: |
+          if [ -d Tests ]; then
+            swift test
+          else
+            echo "::warning::Swift test SKELETON — no Tests/ directory yet, so only \"swift build\" ran above. This step is a placeholder, not a passing test run."
+          fi
+
+  # --- Shader compilation: Metal ---------------------------------------------
+  # IMPORTANT: xcrun metal requires a full Xcode install. The machine this
+  # change was authored on has only the Command Line Tools, where `xcrun
+  # metal` does not exist — that is expected and is NOT equivalent to this
+  # job. This job MUST run on a GitHub-hosted macOS runner with Xcode
+  # selected; do not treat a skipped or unavailable local run as a stand-in
+  # for it passing.
+  shader-compile-metal:
+    name: "Shader compilation (Metal, GitHub macOS runner only)"
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Guard — verify xcrun metal is available
+        run: |
+          if ! xcrun --find metal > /dev/null 2>&1; then
+            echo "::error::xcrun metal is unavailable on this runner. This job requires a GitHub-hosted macOS runner with full Xcode selected (Command Line Tools alone do not provide it)."
+            exit 1
+          fi
+          xcrun metal --version
+
+      - name: Compile generated Metal shaders
+        run: |
+          files="$(find Sources -name '*.metal' 2>/dev/null || true)"
+          if [ -z "$files" ]; then
+            echo "::warning::Metal shader compilation SKELETON — no generated .metal files found yet (tasks 4.6, 6.1-6.3 generate these). This step is a placeholder, not a passing compile."
+          else
+            echo "$files" | while IFS= read -r f; do
+              echo "Compiling $f"
+              xcrun -sdk macosx metal -c "$f" -o "/tmp/$(basename "$f").air"
+            done
+          fi
+
+  # --- Shader compilation: SkSL + GLSL ----------------------------------------
+  shader-compile-sksl-glsl:
+    name: Shader compilation (SkSL + GLSL)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: |
+          if [ -f pnpm-lock.yaml ]; then
+            pnpm install --frozen-lockfile
+          else
+            echo "::warning::no pnpm-lock.yaml yet — skipping install (expected until the workspace scaffold lands)"
+          fi
+
+      - name: Validate GLSL (headless-gl) and SkSL (RuntimeEffect.Make)
+        run: |
+          if [ -f package.json ] && jq -e '.scripts["check-shaders"]' package.json > /dev/null 2>&1; then
+            pnpm run check-shaders
+          else
+            echo "::warning::SkSL/GLSL compilation SKELETON — no root \"check-shaders\" script found yet (task 4.8). This step is a placeholder, not a passing compile."
+          fi
+
+  # --- Generated-file freshness -----------------------------------------------
+  generated-file-freshness:
+    name: Generated-file freshness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: |
+          if [ -f pnpm-lock.yaml ]; then
+            pnpm install --frozen-lockfile
+          else
+            echo "::warning::no pnpm-lock.yaml yet — skipping install (expected until the workspace scaffold lands)"
+          fi
+
+      - name: Regenerate generated artifacts
+        run: |
+          ran_any=false
+          if [ -f package.json ] && jq -e '.scripts["build:shaders"]' package.json > /dev/null 2>&1; then
+            pnpm run build:shaders
+            ran_any=true
+          fi
+          if [ -f package.json ] && jq -e '.scripts["build:presets"]' package.json > /dev/null 2>&1; then
+            pnpm run build:presets
+            ran_any=true
+          fi
+          if [ "$ran_any" = "false" ]; then
+            echo "::warning::generated-file freshness SKELETON — no build:shaders/build:presets scripts found yet (tasks 2.6, 4.6). This step is a placeholder, not a passing freshness check."
+          fi
+
+      - name: Fail on drift (modified OR untracked generated files)
+        run: |
+          # git diff alone misses a generator that emits a brand-new file
+          # which was never committed — that file is untracked, not modified,
+          # so `git diff` can't see it. git status --porcelain catches both.
+          #
+          # Sources/Orbic covers Presets.swift and, recursively, the
+          # committed generated .metal files under Sources/Orbic/Shaders —
+          # git pathspecs match a directory prefix recursively, so no
+          # separate Shaders entry is needed here (confirmed empirically,
+          # not assumed: `git status --porcelain -- Sources/Orbic` reports
+          # the whole subtree). fixtures/ holds golden-frames.json,
+          # generated from packages/orb-core/src/presets.json — a generated
+          # artifact in its own right, and must be covered the same way.
+          drift="$(git status --porcelain -- Sources/Orbic packages fixtures 2>/dev/null)"
+          if [ -n "$drift" ]; then
+            echo "::error::Generated files are stale or uncommitted relative to their sources. Run the generators locally and commit the results."
+            echo "$drift"
+            exit 1
+          fi
