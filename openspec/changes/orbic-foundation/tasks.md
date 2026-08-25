@@ -38,7 +38,7 @@
 
 ## 5. Orb compositor and web renderer
 
-- [ ] 5.1 Write `compositors/orb.orb` with sphere SDF mask, rim falloff, and alpha outside the mask
+- [x] 5.1 Write `compositors/orb.orb` with sphere SDF mask, rim falloff, and alpha outside the mask
 - [x] 5.2 Implement the shared process-wide WebGL2 context with once-only shader compilation
 - [x] 5.3 Implement `<Orb>` for web with `field`, `state`, `size`, `speed`, `paused`
 - [x] 5.4 Wire the shared spring integrator to uniform updates via a rAF pump
@@ -61,13 +61,13 @@
 - [x] 6.4a WIRING — `build-shaders.mjs` (~line 150/158) and `check-shaders.mjs` (~line 61) both hardcode `placeholder-passthrough.orb` as the surface compositor and never reference `surface.orb`. Until this one-line-each fix lands, every `*-surface.*` artifact is built from the placeholder and any green from those scripts is vacuous
 - [ ] 6.5 Tune each ported field against both compositors side by side
 - [ ] 6.6 Add the aspect-distortion regression test comparing the central 180×180 region at 400×180, 180×400 and 300×300 within 1/255 mean absolute difference
-- [ ] 6.7 Add the brand-unity check asserting a field swap changes both shapes together
+- [x] 6.7 Add the brand-unity check asserting a field swap changes both shapes together
 
 ## 7. Surface legibility
 - [x] 7.1 Implement `<Surface>` for web with `field`, `preset`, `scale` and per-channel overrides, with no animation option
 - [x] 7.2 Verify no rAF loop is scheduled, and that eight mounted Surfaces schedule no per-frame work
-- [ ] 7.3 Implement the automated contrast check: brightest rendered luminance vs body-text colour, asserting ≥ 4.5:1 (WCAG AA)
-- [ ] 7.4 Run the check across all 3 fields × 5 presets and tune the compositor until every combination passes
+- [x] 7.3 Implement the automated contrast check: brightest rendered luminance vs body-text colour, asserting ≥ 4.5:1 (WCAG AA)
+- [x] 7.4 Run the check across all 3 fields × 5 presets and tune the compositor until every combination passes
 - [ ] 7.5 Wire the contrast check into CI so a legibility regression fails the build
 - [x] 7.6 Implement unknown-`preset`/`field` fallback with a warning naming the valid options
 - [x] 7.7 Build a runnable web dev harness (Vite dev server + demo page) showing `<Orb>` in all five presets and `<Surface>` behind real body text, with a field switcher — REQUIRED for the review checkpoint below
@@ -105,7 +105,7 @@ Native and Swift work (groups 8-9) deliberately waits. Tuning discovered here ch
 - [ ] 9.3 Implement `Orb` using `ShaderLibrary` with `.colorEffect` and `TimelineView(.animation)`
 - [ ] 9.4 Implement `Surface` as static, using no `TimelineView`
 - [ ] 9.5 Implement reduced-motion handling via `UIAccessibility.isReduceMotionEnabled`
-- [ ] 9.6 Add XCTest asserting the golden-frame fixture at ±0.001
+- [x] 9.6 Add XCTest asserting the golden-frame fixture at ±0.001
 - [x] 9.7 Verify the package resolves and builds as an SPM dependency from a clean checkout
 - [x] 9.8 CONFIRMED BROKEN — fix the case collision: `tests/` and `Tests/` share an inode locally, git records lowercase `tests/`, and on a case-sensitive checkout `swift build` fails with overlapping sources between `Orbic` and `OrbicTests`. Move the shared fixture to top-level `fixtures/` and keep `Tests/` for SPM convention
 - [x] 9.9 Update every reference to the moved fixture: `generate-fixtures.ts`, the Vitest golden-frame suite, `package.json` scripts, Swift `TestSupport.swift`, and the CI freshness paths

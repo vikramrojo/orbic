@@ -165,9 +165,35 @@ jobs:
             done
           fi
 
-  # --- Shader compilation: SkSL + GLSL ----------------------------------------
-  shader-compile-sksl-glsl:
-    name: Shader compilation (SkSL + GLSL)
+  # --- Shader compilation: SkSL (task 4.8) ------------------------------------
+  # Task 4.8 asks for three compilation checks: `xcrun metal`, `RuntimeEffect.Make`,
+  # and headless-gl. Status, so this job's name doesn't overclaim:
+  #
+  #   - RuntimeEffect.Make (SkSL): validated FOR REAL below, via `pnpm run
+  #     check-shaders`, which loads canvaskit-wasm (the actual Skia compiler)
+  #     and calls `CanvasKit.RuntimeEffect.Make` on every generated SkSL
+  #     artifact. See scripts/check-shaders.mjs.
+  #   - xcrun metal: NOT this job — see the `shader-compile-metal` job above,
+  #     which runs on a GitHub-hosted macOS runner with Xcode selected.
+  #   - headless-gl (`gl`, for GLSL ES 3.00): NOT wired anywhere in CI.
+  #     scripts/check-shaders.mjs documents why it doesn't run on the
+  #     machine this repo was authored on: `gl`'s vendored ANGLE subproject
+  #     shells out to a literal `python` binary, absent there. Checked
+  #     specifically for THIS job: GitHub's ubuntu-latest (24.04) runner
+  #     image does ship `python-is-python3`, so that particular blocker
+  #     would likely not reproduce here — but that alone doesn't make this
+  #     wireable. `gl` is not a dependency anywhere in this repo (absent
+  #     from package.json and pnpm-lock.yaml), and no script here imports it
+  #     against real GLSL artifacts. Installing it ad hoc from a CI step,
+  #     outside the lockfile, with no real consumer to exercise, would be
+  #     exactly the "green check that proves nothing" this project is
+  #     explicitly trying to avoid — see the batch-wide warning in
+  #     scripts/check-shaders.mjs. Once a real `gl`-based compile check
+  #     lands as a checked-in dependency + script, add a step for it here,
+  #     next to the SkSL step below, rather than reintroducing the
+  #     now-corrected "GLSL (headless-gl)" claim into this job's name.
+  shader-compile-sksl:
+    name: Shader compilation (SkSL only — see comment)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -189,13 +215,61 @@ jobs:
             echo "::warning::no pnpm-lock.yaml yet — skipping install (expected until the workspace scaffold lands)"
           fi
 
-      - name: Validate GLSL (headless-gl) and SkSL (RuntimeEffect.Make)
+      - name: Validate SkSL with real Skia (RuntimeEffect.Make via canvaskit-wasm)
         run: |
           if [ -f package.json ] && jq -e '.scripts["check-shaders"]' package.json > /dev/null 2>&1; then
             pnpm run check-shaders
           else
-            echo "::warning::SkSL/GLSL compilation SKELETON — no root \"check-shaders\" script found yet (task 4.8). This step is a placeholder, not a passing compile."
+            echo "::warning::SkSL compilation SKELETON — no root \"check-shaders\" script found yet (task 4.8). This step is a placeholder, not a passing compile."
           fi
+
+  # --- Render check: contrast / legibility (task 7.5) -------------------------
+  # tools/render-check/self-test.mjs proves the rendering harness itself
+  # (identical-shader zero-diff, different-shader large-diff, and the real
+  # aspect-check logic catching a deliberately stretched shader) before
+  # anything downstream is trusted. It MUST run — and pass — before
+  # contrast-check.mjs, as its own final line states: "safe to trust
+  # aspect-check.mjs, brand-unity-check.mjs, and contrast-check.mjs." A
+  # broken comparator could otherwise report a false PASS on a real
+  # legibility regression, silently defeating the whole point of this job
+  # (the same concern task 11.4 raises for the cross-platform parity
+  # diagnostic). These are two separate steps, not one `&&`-chained command,
+  # so a self-test failure is unambiguous in the job log rather than
+  # attributed to contrast-check.
+  render-check-contrast:
+    name: "Render check — contrast/legibility (WCAG AA, task 7.5)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: |
+          if [ -f pnpm-lock.yaml ]; then
+            pnpm install --frozen-lockfile
+          else
+            echo "::warning::no pnpm-lock.yaml yet — skipping install (expected until the workspace scaffold lands)"
+          fi
+
+      # No `if [ -f ]` guard on either step below, unlike the scaffold-era jobs
+      # above: both scripts are committed, and a guard here would turn a
+      # deleted or renamed check into a green build with a warning — the same
+      # "green check that proves nothing" this job exists to prevent. If
+      # either file goes missing, `node` exits non-zero and the build fails,
+      # which is the intended behaviour.
+      - name: Verify the render-check harness itself (must pass before trusting contrast-check)
+        run: node tools/render-check/self-test.mjs
+
+      - name: Run contrast / legibility check (WCAG AA, fails the build on regression)
+        run: node tools/render-check/contrast-check.mjs
 
   # --- Generated-file freshness -----------------------------------------------
   generated-file-freshness:

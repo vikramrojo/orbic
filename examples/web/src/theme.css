@@ -1,0 +1,148 @@
+/* Orbic review-harness theme, built on largen's property algebra.
+ *
+ * largen ships its own official dark theme (largen/themes/dark.css) as a
+ * `[data-theme="dark"]` token override, layered inside `largen.tokens` — this
+ * is the intended extension point, not a workaround. `index.html` sets
+ * `data-theme="dark"` on <html>. We deepen a handful of slots further, in our
+ * own `app-theme` layer declared *after* largen's layers, to reach the
+ * near-black, low-contrast mood of https://orbs.jakubantalik.com/ — an orb on
+ * a quiet field, chrome receding.
+ *
+ * `app` (also declared after largen's layers) holds this app's own named
+ * components. It never sets --bg/--fg/--border-* on anything carrying
+ * data-tone/data-variant, so those axes keep working — an unlayered (or
+ * later-layered) slot assignment would silently outrank `largen.modifiers`.
+ */
+
+@import 'largen/dist';
+@import 'largen/themes/dark.css';
+
+@layer app-theme, app;
+
+@layer app-theme {
+  [data-theme='dark'] {
+    --canvas: #0a0b0d;
+    --surface: #131418;
+    --line: #1e2024;
+    --ink-muted: #82838c;
+    --primary: #7b7fff;
+    --primary-on: #0a0b14;
+    --shade: rgba(255, 255, 255, 0.05);
+    --shade-strong: rgba(0, 0, 0, 0.7);
+  }
+}
+
+@layer app {
+  .orbic-page {
+    min-height: 100vh;
+    --pad: var(--space-6) var(--space-8) var(--space-16);
+  }
+
+  .orbic-header {
+    margin-block-end: var(--space-8);
+  }
+
+  .orbic-title {
+    --font-size: 1.05rem;
+    --weight: var(--weight-bold);
+    --fg: var(--ink);
+    margin: 0 0 var(--space-1);
+  }
+
+  .orbic-subhead {
+    --font-size: 0.8rem;
+    --fg: var(--ink-muted);
+    margin: 0;
+  }
+
+  .orbic-subhead code,
+  .orbic-hint code {
+    font-family: var(--font-mono);
+  }
+
+  .orbic-section {
+    margin-block-end: var(--space-12);
+  }
+
+  .orbic-heading {
+    --font-size: 0.85rem;
+    --weight: var(--weight-bold);
+    --fg: var(--ink);
+    margin: 0 0 var(--space-1);
+  }
+
+  .orbic-hint {
+    --font-size: 0.8rem;
+    --fg: var(--ink-muted);
+    margin: 0 0 var(--space-4);
+  }
+
+  .orbic-row {
+    display: flex;
+    flex-wrap: wrap;
+    --gap: var(--space-2);
+  }
+
+  .orbic-orb-row {
+    display: flex;
+    justify-content: center;
+    padding-block: var(--space-6);
+  }
+
+  .orbic-unity-row {
+    display: flex;
+    flex-wrap: wrap;
+    --gap: var(--space-4);
+  }
+
+  /* Frame around a canvas-rendered <Surface>/<Orb>. Sets border/radius/pad
+   * chrome only — never --bg on the canvas itself, so largen's universal
+   * paint rule never paints over the rendered field. --bg here targets only
+   * this frame div, and largen's slot custom properties don't inherit. */
+  .orbic-card {
+    position: relative;
+    overflow: hidden;
+    --bg: var(--surface);
+    --radius: var(--radius-lg);
+    --border-width: var(--hairline);
+    --border-style: solid;
+    --border-color: var(--line);
+  }
+
+  .orbic-card-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .orbic-card-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    padding: var(--space-6);
+  }
+
+  .orbic-body-text {
+    --font-size: 0.9rem;
+    --line-height: 1.6;
+    --fg: var(--ink);
+    margin: 0;
+    max-width: 48ch;
+  }
+
+  .orbic-aspect-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    --gap: var(--space-6);
+  }
+
+  .orbic-caption {
+    --font-size: 0.75rem;
+    --fg: var(--ink-muted);
+    margin: 0 0 var(--space-2);
+  }
+}
