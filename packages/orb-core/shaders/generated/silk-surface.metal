@@ -428,8 +428,8 @@ float3 field(float2 p, float t, float energy, float coherence, float warmth, flo
 // floor, `checkContrast` for the ceiling, and its printed table for the
 // current measured range of every field x preset combination.
 
-const float SURFACE_GAIN = 2.3;
-const float SURFACE_KNEE = 2.4;
+constant float SURFACE_GAIN = 2.3;
+constant float SURFACE_KNEE = 2.4;
 
 // World-space offset for the 5-tap blur, chosen relative to the shipped
 // fields' own grain frequency (their grain hashes multiply `p` by roughly
@@ -437,7 +437,7 @@ const float SURFACE_KNEE = 2.4;
 // inside a single one. Provisional: the surface epilogue's own `scale`
 // (task 7.x) is not fixed yet, and this constant should be re-checked
 // once it is and once a renderer exists to look at the result.
-const float SURFACE_BLUR_RADIUS = 0.006;
+constant float SURFACE_BLUR_RADIUS = 0.006;
 
 // Known shape limitation, recorded with the provisional radius above: the
 // 5 taps below are the centre plus the four DIAGONAL neighbours, so the

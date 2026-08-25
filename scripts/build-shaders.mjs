@@ -11,7 +11,7 @@
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { lintShaderSource } from './lint-shader.mjs';
+import { lintShaderSource, stripComments } from './lint-shader.mjs';
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const targetsDir = resolve(rootDir, 'packages/orb-core/shaders/targets');
@@ -37,6 +37,58 @@ export function applyMetalTypeAliases(source) {
     result = result.replace(new RegExp(`\\b${glslType}\\b`, 'g'), metalType);
   }
   return result;
+}
+
+/**
+ * Rewrites PROGRAM-SCOPE `const` to Metal's `constant` address space.
+ *
+ * GLSL and SkSL accept `const float X = 0.5;` at file scope; Metal rejects it
+ * outright — "program scope variable must reside in constant address space" —
+ * so every field that declares a named constant outside a function produced a
+ * .metal artifact that could not compile. Function-LOCAL `const` is valid
+ * Metal exactly as written, so this must be scope-aware: rewriting every
+ * `const` would change locals into program-scope-only storage and fail
+ * differently.
+ *
+ * Depth is tracked by scanning characters rather than by regex, skipping line
+ * and block comments so a brace inside a comment cannot desynchronise the
+ * count. Strings are not handled because the portable shader subset has no
+ * string literals (see scripts/lint-shader.mjs).
+ */
+export function applyMetalProgramScopeConstants(source) {
+  // `stripComments` (shared with the linter) blanks comment bodies to spaces
+  // while preserving length and newlines, so this copy stays index-aligned
+  // with `source` and a brace inside a comment cannot desynchronise the depth
+  // count. Strings are not considered because the portable subset has none.
+  const scan = stripComments(source);
+
+  let out = '';
+  let depth = 0;
+  let i = 0;
+
+  while (i < source.length) {
+    const ch = scan[i];
+
+    if (ch === '{') depth++;
+    else if (ch === '}') depth = Math.max(0, depth - 1);
+
+    if (depth === 0 && scan.startsWith('const', i)) {
+      const before = i === 0 ? '' : scan[i - 1];
+      const after = scan[i + 5];
+      const isToken =
+        (i === 0 || !/[A-Za-z0-9_]/.test(before)) && after !== undefined && !/[A-Za-z0-9_]/.test(after);
+      if (isToken) {
+        out += 'constant';
+        i += 5;
+        continue;
+      }
+    }
+
+    out += source[i];
+    i++;
+  }
+
+  return out;
 }
 
 function readTarget(baseName, target) {
@@ -80,6 +132,9 @@ export function buildArtifacts({ name, fieldSource, compositors, outDir, metalOu
       let core = `${fieldSource}\n\n${compositors[shape]}`;
       if (target === 'metal') {
         core = applyMetalTypeAliases(core);
+        // Must run on the core only: the hand-written .metal preamble/epilogue
+        // already use `constant` where Metal requires it.
+        core = applyMetalProgramScopeConstants(core);
       }
 
       const content = `${preamble}\n${core}\n\n${epilogue}`;

@@ -13,7 +13,7 @@
  * line numbers stay accurate), so comment text — including this project's
  * own doc comments about what's banned — never triggers a false positive.
  */
-function stripComments(source) {
+export function stripComments(source) {
   let result = '';
   let i = 0;
   const n = source.length;

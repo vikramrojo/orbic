@@ -110,7 +110,7 @@ float vnoise(float2 p) {
     return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
 }
 
-const int VEIL_FBM_OCTAVES = 5;
+constant int VEIL_FBM_OCTAVES = 5;
 
 float fbm(float2 p) {
     float val = 0.0;
@@ -142,7 +142,7 @@ float2x2 rot2(float a) {
     return float2x2(c, -s, s, c);
 }
 
-const int VEIL_LAYER_COUNT = 7;
+constant int VEIL_LAYER_COUNT = 7;
 
 float3 field(float2 p, float t, float energy, float coherence, float warmth, float pulse) {
     float clock = t * pulse;
@@ -280,10 +280,10 @@ float3 field(float2 p, float t, float energy, float coherence, float warmth, flo
 // built-ins available identically on all three targets, so they need no
 // shim.
 
-const float ORB_SPHERE_RADIUS = 0.5;
-const float ORB_EDGE_SOFTNESS = 0.02;
-const float ORB_RIM_WIDTH = 0.18;
-const float ORB_RIM_INTENSITY = 0.6;
+constant float ORB_SPHERE_RADIUS = 0.5;
+constant float ORB_EDGE_SOFTNESS = 0.02;
+constant float ORB_RIM_WIDTH = 0.18;
+constant float ORB_RIM_INTENSITY = 0.6;
 
 float4 composite(float2 p, float t, float energy, float coherence, float warmth, float pulse) {
     float3 color = field(p, t, energy, coherence, warmth, pulse);

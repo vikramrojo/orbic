@@ -3,7 +3,13 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 // @ts-expect-error — plain JS module, not part of the orb-core TS project.
-import { SHAPES, TARGETS, applyMetalTypeAliases, buildArtifacts } from '../../../scripts/build-shaders.mjs';
+import {
+  SHAPES,
+  TARGETS,
+  applyMetalProgramScopeConstants,
+  applyMetalTypeAliases,
+  buildArtifacts,
+} from '../../../scripts/build-shaders.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const shadersDir = resolve(here, '../shaders');
@@ -132,5 +138,44 @@ describe('applyMetalTypeAliases', () => {
     const source = 'float vec2Count = 1.0; float notavec3 = 2.0;';
     const aliased = applyMetalTypeAliases(source);
     expect(aliased).toBe(source);
+  });
+});
+
+describe('applyMetalProgramScopeConstants', () => {
+  // Metal rejects `const` at program scope outright ("program scope variable
+  // must reside in constant address space"), so every field declaring a named
+  // constant outside a function produced a .metal artifact that could not
+  // compile. Nothing caught it because no Metal compiler ran in this repo.
+  it('rewrites program-scope const to the constant address space', () => {
+    const out = applyMetalProgramScopeConstants('const float ORB_SCALE = 1.0;');
+    expect(out).toBe('constant float ORB_SCALE = 1.0;');
+  });
+
+  it('leaves function-local const alone, which is already valid Metal', () => {
+    const source = ['float f() {', '    const float x = 2.0;', '    return x;', '}'].join('\n');
+    expect(applyMetalProgramScopeConstants(source)).toBe(source);
+  });
+
+  it('does not follow braces that only appear inside comments', () => {
+    const source = ['// opens a brace { but never closes it', 'const float A = 1.0;'].join('\n');
+    expect(applyMetalProgramScopeConstants(source)).toContain('constant float A');
+  });
+
+  it('leaves identifiers that merely start with const untouched', () => {
+    const source = 'float constant_factor = 1.0;\nfloat constants = 2.0;';
+    expect(applyMetalProgramScopeConstants(source)).toBe(source);
+  });
+
+  it('emits no program-scope bare const in any generated Metal artifact', () => {
+    const artifacts = buildArtifacts({
+      name: 'flat-color',
+      fieldSource,
+      compositors: { orb: orbCompositorSource, surface: compositorSource },
+    });
+
+    for (const artifact of artifacts.filter((a) => a.target === 'metal')) {
+      const offenders = artifact.content.split('\n').filter((line) => /^const\s/.test(line));
+      expect(offenders).toEqual([]);
+    }
   });
 });
