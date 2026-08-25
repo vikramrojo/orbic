@@ -1,0 +1,28 @@
+{
+  "name": "@orbic/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Frame-rate independent spring integrator and preset data — the shared personality layer for Orbic.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./presets.json": "./src/presets.json"
+  },
+  "files": [
+    "dist",
+    "src/presets.json"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}

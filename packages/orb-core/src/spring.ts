@@ -1,0 +1,66 @@
+export interface SpringParams {
+  readonly stiffness: number;
+  readonly damping: number;
+  readonly mass: number;
+}
+
+export interface SpringState {
+  readonly value: number;
+  readonly velocity: number;
+}
+
+export interface AccumulatingSpringState extends SpringState {
+  readonly accumulator: number;
+}
+
+/** Fixed substep, in seconds, per the spec: semi-implicit Euler at 1/120 s. */
+export const FIXED_SUBSTEP = 1 / 120;
+
+/**
+ * Upper bound on the real time a single `integrateSpring` call will advance,
+ * in seconds (30 substeps). This is part of the specified formulation, not a
+ * per-platform detail: a backgrounded tab, a debugger pause, or a slow first
+ * paint can hand the integrator a huge delta, and without a shared clamp one
+ * platform could spiral through thousands of substeps in a single call while
+ * another platform clamps differently (or not at all) — silently breaking
+ * the cross-platform golden-frame conformance this integrator exists for.
+ * Every platform's integrator must clamp at exactly this value.
+ */
+export const MAX_FRAME_DELTA = 0.25;
+
+const EPSILON = 1e-9;
+
+export function createSpringState(value: number, velocity = 0): AccumulatingSpringState {
+  return { value, velocity, accumulator: 0 };
+}
+
+function substep(state: SpringState, target: number, params: SpringParams, dt: number): SpringState {
+  const acceleration =
+    (-params.stiffness * (state.value - target) - params.damping * state.velocity) / params.mass;
+  const velocity = state.velocity + acceleration * dt;
+  const value = state.value + velocity * dt;
+  return { value, velocity };
+}
+
+/**
+ * Advances a spring by `frameDeltaSeconds` of real time, internally stepping in
+ * fixed 1/120 s substeps accumulated against that delta. This is what makes the
+ * result frame-rate independent: the physics only ever sees 1/120 s steps,
+ * regardless of how often the caller invokes this function.
+ */
+export function integrateSpring(
+  state: AccumulatingSpringState,
+  target: number,
+  params: SpringParams,
+  frameDeltaSeconds: number
+): AccumulatingSpringState {
+  let { value, velocity, accumulator } = state;
+  accumulator += Math.min(frameDeltaSeconds, MAX_FRAME_DELTA);
+
+  while (accumulator + EPSILON >= FIXED_SUBSTEP) {
+    ({ value, velocity } = substep({ value, velocity }, target, params, FIXED_SUBSTEP));
+    accumulator -= FIXED_SUBSTEP;
+  }
+
+  return { value, velocity, accumulator };
+}

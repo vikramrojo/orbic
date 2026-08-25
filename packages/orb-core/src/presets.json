@@ -1,0 +1,20 @@
+{
+  "channels": ["energy", "coherence", "warmth", "pulse"],
+  "presets": {
+    "subtle": { "energy": 0.15, "coherence": 0.82, "warmth": 0.35, "pulse": 0.3 },
+    "active": { "energy": 0.88, "coherence": 0.52, "warmth": 0.55, "pulse": 1.4 },
+    "cooling": { "energy": 0.3, "coherence": 0.74, "warmth": 0.12, "pulse": 0.55 },
+    "warming": { "energy": 0.55, "coherence": 0.6, "warmth": 0.9, "pulse": 0.75 },
+    "pacing": { "energy": 0.48, "coherence": 0.68, "warmth": 0.5, "pulse": 2.0 }
+  },
+  "springs": {
+    "default": { "stiffness": 120, "damping": 14, "mass": 1.0 },
+    "subtle>active": { "stiffness": 260, "damping": 18, "mass": 1.0 },
+    "active>subtle": { "stiffness": 60, "damping": 16, "mass": 1.2 },
+    "cooling>warming": { "stiffness": 90, "damping": 20, "mass": 1.0 },
+    "warming>cooling": { "stiffness": 110, "damping": 15, "mass": 1.0 },
+    "pacing>active": { "stiffness": 200, "damping": 12, "mass": 0.9 },
+    "active>pacing": { "stiffness": 140, "damping": 22, "mass": 1.0 },
+    "subtle>pacing": { "stiffness": 150, "damping": 16, "mass": 1.0 }
+  }
+}
