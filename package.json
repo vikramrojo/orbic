@@ -13,6 +13,7 @@
     "generate:fixtures": "tsx packages/orb-core/scripts/generate-fixtures.ts",
     "build:presets": "node scripts/build-presets.mjs",
     "build:shaders": "node scripts/build-shaders.mjs",
+    "build:metallibs": "node scripts/build-metallibs.mjs",
     "check-shaders": "node scripts/check-shaders.mjs",
     "dev:web": "pnpm --filter @orbic/core run build && pnpm --filter @orbic/example-web run dev"
   },

@@ -145,13 +145,39 @@ jobs:
         with:
           xcode-version: latest-stable
 
-      - name: Guard — verify xcrun metal is available
+      # `xcrun --find metal` is NOT a sufficient guard. As of Xcode 26 the
+      # Metal compiler is a separately downloadable component: the driver
+      # binary resolves and `--version` answers, while an actual compile dies
+      # with "cannot execute tool 'metal' due to missing Metal Toolchain".
+      # Only a real compile proves the toolchain is present, so that is what
+      # this guard does.
+      - name: Guard — verify the Metal toolchain can actually compile
         run: |
           if ! xcrun --find metal > /dev/null 2>&1; then
             echo "::error::xcrun metal is unavailable on this runner. This job requires a GitHub-hosted macOS runner with full Xcode selected (Command Line Tools alone do not provide it)."
             exit 1
           fi
           xcrun metal --version
+
+          printf 'kernel void orbic_toolchain_probe() {}\n' > /tmp/probe.metal
+          if ! xcrun metal -c /tmp/probe.metal -o /tmp/probe.air; then
+            echo "::error::The Metal driver is present but the toolchain is not installed, so no shader can be compiled. Install it with: xcodebuild -downloadComponent MetalToolchain"
+            exit 1
+          fi
+
+      # The .metallib artifacts under Sources/Orbic/Resources are committed
+      # (task 9.2: consumers must not need the Metal toolchain), so they can
+      # drift from the .metal sources exactly like any other generated file.
+      # Rebuild and fail on any difference.
+      - name: Verify committed metallibs are up to date
+        run: |
+          node scripts/build-metallibs.mjs
+          if ! git diff --quiet -- Sources/Orbic/Resources; then
+            echo "::error::Committed .metallib files are stale. Run \`pnpm build:metallibs\` and commit the result."
+            git diff --stat -- Sources/Orbic/Resources
+            exit 1
+          fi
+          echo "metallibs are in sync with Sources/Orbic/Shaders"
 
       - name: Compile generated Metal shaders
         run: |

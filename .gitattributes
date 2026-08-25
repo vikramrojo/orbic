@@ -1,0 +1,4 @@
+# Prebuilt Metal shader libraries (scripts/build-metallibs.mjs). Marked binary
+# so git neither attempts a textual diff nor applies any line-ending
+# normalisation, which would corrupt them.
+*.metallib binary
