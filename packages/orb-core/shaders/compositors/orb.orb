@@ -1,0 +1,39 @@
+// Real orb compositor (task 5.1): a sphere SDF mask with rim falloff over
+// the field's colour. Glow is faked entirely in-shader as a brightened band
+// near the edge — there is no bloom and no second pass (see design.md
+// decision #10).
+//
+// Returns PREMULTIPLIED colour and alpha (`vec4(rgb * a, a)`), per the
+// two-function contract in docs/shader-abi.md: `composite()` alone decides
+// visibility, so the orb can be composited over an arbitrary background
+// without dark fringing at the rim. `alpha` reaches exactly 0 outside the
+// sphere mask.
+//
+// Written once in the portable subset — no texture sampling, no `discard`,
+// no `while`, no dynamic indexing, no preprocessor, no bare `mod`/two-arg
+// `atan`, no `uniform` declarations. `smoothstep` and `length` are portable
+// built-ins available identically on all three targets, so they need no
+// shim.
+
+const float ORB_SPHERE_RADIUS = 0.5;
+const float ORB_EDGE_SOFTNESS = 0.02;
+const float ORB_RIM_WIDTH = 0.18;
+const float ORB_RIM_INTENSITY = 0.6;
+
+vec4 composite(vec2 p, float t, float energy, float coherence, float warmth, float pulse) {
+    vec3 color = field(p, t, energy, coherence, warmth, pulse);
+
+    float dist = length(p);
+
+    // 1 inside the sphere, smoothly falls to 0 across a soft edge band —
+    // this alone is what lets alpha reach exactly 0 outside the mask.
+    float mask = 1.0 - smoothstep(ORB_SPHERE_RADIUS - ORB_EDGE_SOFTNESS, ORB_SPHERE_RADIUS + ORB_EDGE_SOFTNESS, dist);
+
+    // Brightens a band just inside the edge, clamped to the same mask so
+    // the rim never bleeds past it — a cheap in-shader stand-in for glow.
+    float rim = smoothstep(ORB_SPHERE_RADIUS - ORB_RIM_WIDTH, ORB_SPHERE_RADIUS, dist) * mask;
+    vec3 litColor = color + rim * ORB_RIM_INTENSITY;
+
+    float alpha = mask;
+    return vec4(litColor * alpha, alpha);
+}

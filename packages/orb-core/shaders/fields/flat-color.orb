@@ -1,0 +1,13 @@
+// Placeholder field — flat colour driven by `energy`. Not a real material:
+// it exists to prove the build pipeline (preamble + field + compositor +
+// epilogue, concatenated per target) end-to-end before any real field is
+// ported (task group 6).
+//
+// Written once in the portable subset (see docs/shader-abi.md): plain GLSL-
+// style syntax, no texture sampling, no `discard`, no `while`, no dynamic
+// indexing, no preprocessor, no bare `mod`/two-arg `atan`, no `uniform`
+// declarations of its own.
+
+vec3 field(vec2 p, float t, float energy, float coherence, float warmth, float pulse) {
+    return vec3(energy);
+}

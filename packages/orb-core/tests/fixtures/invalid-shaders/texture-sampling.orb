@@ -1,0 +1,5 @@
+// Invalid: samples a texture. No target guarantees a bound texture for a field.
+vec3 field(vec2 p, float t, float energy, float coherence, float warmth, float pulse) {
+    vec4 sampled = texture(u_noiseTex, p);
+    return sampled.rgb;
+}

@@ -1,0 +1,6 @@
+#define SCALE 2.0
+// Invalid: preprocessor directives are not portable — SkSL has essentially
+// no preprocessor.
+vec3 field(vec2 p, float t, float energy, float coherence, float warmth, float pulse) {
+    return vec3(energy * SCALE);
+}

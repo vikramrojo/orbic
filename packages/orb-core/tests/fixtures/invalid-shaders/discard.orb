@@ -1,0 +1,7 @@
+// Invalid: uses `discard`, which is not allowed in a field or compositor.
+vec4 composite(vec2 p, float t, float energy, float coherence, float warmth, float pulse) {
+    if (length(p) > 1.0) {
+        discard;
+    }
+    return vec4(1.0);
+}

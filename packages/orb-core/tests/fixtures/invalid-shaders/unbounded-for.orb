@@ -1,0 +1,10 @@
+// Invalid: `for` loop bound is a runtime value (`energy`-derived), not a
+// compile-time constant.
+vec3 field(vec2 p, float t, float energy, float coherence, float warmth, float pulse) {
+    float acc = 0.0;
+    int bound = int(energy * 10.0);
+    for (int i = 0; i < bound; i++) {
+        acc += float(i);
+    }
+    return vec3(acc);
+}

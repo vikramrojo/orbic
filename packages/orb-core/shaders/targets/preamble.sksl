@@ -1,0 +1,32 @@
+// Orbic shader preamble — SkSL (Skia RuntimeEffect).
+//
+// Declares the frozen four-channel uniform ABI as globals (SkSL, like GLSL,
+// reads uniforms as globals) and the portable-subset shims. A field or
+// compositor body never declares a `uniform` itself — see
+// docs/shader-abi.md. Written in GLSL-style vecN syntax deliberately: SkSL
+// accepts GLSL's vecN/matN names as built-in aliases for its own floatN/
+// floatNxN types, which is what lets a single field/compositor source file
+// run unmodified under both GLSL and SkSL.
+
+uniform float2 u_resolution;
+uniform float u_time;
+uniform float u_energy;
+uniform float u_coherence;
+uniform float u_warmth;
+uniform float u_pulse;
+
+// True modulo (result takes the sign of `y`), defined explicitly rather than
+// assumed equivalent to any native function, so all three targets agree on
+// exactly the same formula.
+float oMod(float x, float y) {
+    return x - y * floor(x / y);
+}
+
+vec2 oMod(vec2 x, vec2 y) {
+    return x - y * floor(x / y);
+}
+
+// Two-argument arctangent, spelled `atan(y, x)` in SkSL just as in GLSL.
+float oAtan2(float y, float x) {
+    return atan(y, x);
+}

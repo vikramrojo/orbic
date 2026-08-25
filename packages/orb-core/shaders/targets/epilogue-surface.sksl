@@ -1,0 +1,20 @@
+// Orbic epilogue — surface shape, SkSL (Skia RuntimeEffect).
+//
+// Maps the fragment coordinate into aspect-preserving world space at
+// surface scale (zoomed further out than the orb — see docs/shader-abi.md)
+// and calls the compositor.
+//
+// NOTE: coordinate-origin parity with GLSL/Metal is NOT independently
+// verified here — see the equivalent note in epilogue-orb.sksl. `u_time` is
+// assumed already wrapped (at 3600 s) by the caller.
+//
+// u_scale is surface-specific, exposed as the Surface component's public
+// `scale` prop (surface-component spec) — see the equivalent note in
+// epilogue-surface.glsl. Default 3.0, matching the previous hardcoded value.
+
+uniform float u_scale;
+
+half4 main(float2 fragCoord) {
+    vec2 p = (fragCoord - 0.5 * u_resolution) / min(u_resolution.x, u_resolution.y) * u_scale;
+    return half4(composite(p, u_time, u_energy, u_coherence, u_warmth, u_pulse));
+}

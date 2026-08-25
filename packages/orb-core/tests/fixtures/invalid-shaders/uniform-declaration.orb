@@ -1,0 +1,7 @@
+// Invalid: declares a `uniform` inside the shared core. All uniform
+// plumbing must live in per-platform preambles and epilogues.
+uniform float u_extra;
+
+vec3 field(vec2 p, float t, float energy, float coherence, float warmth, float pulse) {
+    return vec3(energy * u_extra);
+}

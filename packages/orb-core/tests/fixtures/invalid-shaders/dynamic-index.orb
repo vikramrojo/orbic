@@ -1,0 +1,6 @@
+// Invalid: indexes an array with a non-compile-time-constant expression.
+vec3 field(vec2 p, float t, float energy, float coherence, float warmth, float pulse) {
+    float weights[4] = float[4](0.1, 0.2, 0.3, 0.4);
+    int i = int(energy * 4.0);
+    return vec3(weights[i]);
+}

@@ -1,0 +1,5 @@
+// Invalid: calls native two-argument `atan(` instead of the `oAtan2(` shim.
+vec3 field(vec2 p, float t, float energy, float coherence, float warmth, float pulse) {
+    float angle = atan(p.y, p.x);
+    return vec3(angle);
+}

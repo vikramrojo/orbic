@@ -1,0 +1,5 @@
+// Invalid: calls native `mod(` instead of the `oMod(` shim.
+vec3 field(vec2 p, float t, float energy, float coherence, float warmth, float pulse) {
+    float wrapped = mod(p.x, 1.0);
+    return vec3(wrapped);
+}

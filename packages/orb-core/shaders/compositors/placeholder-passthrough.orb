@@ -1,0 +1,14 @@
+// Placeholder compositor — passes the field's colour straight through at
+// full opacity, with no shape mask. Not real shape logic: the orb's sphere
+// SDF mask and rim falloff land in task 5.1, and the surface's contrast
+// damping and grain attenuation land in task 7.1. This exists only to give
+// task 4.7's pipeline verification a valid `composite()` to concatenate
+// against, in both compositor positions, until those real compositors
+// exist.
+//
+// Written once in the portable subset (see docs/shader-abi.md).
+
+vec4 composite(vec2 p, float t, float energy, float coherence, float warmth, float pulse) {
+    vec3 color = field(p, t, energy, coherence, warmth, pulse);
+    return vec4(color, 1.0);
+}

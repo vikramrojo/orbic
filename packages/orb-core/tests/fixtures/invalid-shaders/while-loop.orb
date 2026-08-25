@@ -1,0 +1,10 @@
+// Invalid: uses a `while` loop instead of a bounded `for` loop.
+vec3 field(vec2 p, float t, float energy, float coherence, float warmth, float pulse) {
+    float acc = 0.0;
+    int i = 0;
+    while (i < 8) {
+        acc += float(i);
+        i++;
+    }
+    return vec3(acc);
+}

@@ -1,0 +1,19 @@
+// Orbic epilogue — orb shape, SkSL (Skia RuntimeEffect).
+//
+// Maps the fragment coordinate into aspect-preserving world space at orb
+// scale (p spans roughly a unit disc — see docs/shader-abi.md) and calls
+// the compositor.
+//
+// NOTE: coordinate-origin parity with GLSL/Metal (top-left vs bottom-left,
+// y-up vs y-down) is NOT independently verified here — that is the job of
+// the aspect-distortion regression test once a real field lands (openspec
+// task 6.5). This epilogue implements the same formula as the other two
+// targets and assumes matching fragCoord semantics until that test proves
+// otherwise. `u_time` is assumed already wrapped (at 3600 s) by the caller.
+
+const float ORB_SCALE = 1.0;
+
+half4 main(float2 fragCoord) {
+    vec2 p = (fragCoord - 0.5 * u_resolution) / min(u_resolution.x, u_resolution.y) * ORB_SCALE;
+    return half4(composite(p, u_time, u_energy, u_coherence, u_warmth, u_pulse));
+}
