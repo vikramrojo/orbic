@@ -55,7 +55,17 @@ export function integrateSpring(
   frameDeltaSeconds: number
 ): AccumulatingSpringState {
   let { value, velocity, accumulator } = state;
-  accumulator += Math.min(frameDeltaSeconds, MAX_FRAME_DELTA);
+  // A non-finite delta (NaN from a failed timestamp subtraction, Infinity from
+  // a bad clock) would poison the accumulator permanently: NaN survives both
+  // Math.min and the substep loop condition, so the spring would never step
+  // again and every channel would read NaN forever. Refuse the frame instead.
+  if (!Number.isFinite(frameDeltaSeconds)) {
+    return state;
+  }
+  // Clamped low as well as high, matching OrbicSpring.advance(by:) in
+  // Sources/Orbic/Spring.swift — a negative delta must not rewind the
+  // accumulator on one platform and be floored to zero on the other.
+  accumulator += Math.min(Math.max(frameDeltaSeconds, 0), MAX_FRAME_DELTA);
 
   while (accumulator + EPSILON >= FIXED_SUBSTEP) {
     ({ value, velocity } = substep({ value, velocity }, target, params, FIXED_SUBSTEP));

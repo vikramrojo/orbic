@@ -86,6 +86,15 @@ inline float oAtan2(float y, float x) {
 //     as an extended material at Surface scale, and the layered veils
 //     already carry the field's character without it.
 
+// Deliberately a different hash from chladni.orb/silk.orb, which use the
+// fract(p3 + dot(p3, p3.yzx + 33.33)) construction. This sin-based one is
+// what gives Veils its particular noise character, and it is kept for that
+// reason. The tradeoff is that `sin()` precision is implementation-defined,
+// so the fine grain can differ slightly between GPU vendors where the other
+// two fields are bit-stable; the veil layering itself is low-frequency
+// enough that this is not visible at the field level. If cross-vendor
+// determinism ever becomes a hard requirement, this is the line to change --
+// expect the noise pattern to shift when it does.
 float hash(float2 p) {
     return fract(sin(dot(p, float2(127.1, 311.7))) * 43758.5453123);
 }
@@ -239,8 +248,11 @@ float3 field(float2 p, float t, float energy, float coherence, float warmth, flo
     // Tone mapping (subtle, keep the dark mood).
     col = col / (col + 0.5) * 1.1;
 
-    // Slight warmth push.
-    col = pow(col, float3(0.95, 0.98, 1.05));
+    // Slight warmth push. `max(col, 0.0)` first: the per-layer colour
+    // shift above can drive a channel below zero, and pow(negative,
+    // non-integer) is undefined (NaN on most GPUs), which the final clamp
+    // cannot undo. Same guard as chladni.orb and silk.orb.
+    col = pow(max(col, 0.0), float3(0.95, 0.98, 1.05));
 
     // Grain — see header note: added here (the original has none) for
     // consistency with the other two fields, and kept modest.

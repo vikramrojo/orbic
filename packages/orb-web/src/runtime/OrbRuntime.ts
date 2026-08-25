@@ -95,6 +95,15 @@ export class OrbRuntime {
    * `activate()` uses `dt = 0` (no jump), because `lastTimestamp` is null.
    */
   tick(nowMs: number): OrbUniforms {
+    // A non-finite timestamp would produce a non-finite `dt`, which would
+    // poison `tRaw` for the lifetime of this runtime (integrateSpring refuses
+    // the frame, but the clock below has no such guard). Hold the current
+    // uniforms and don't record the bad timestamp, so the next good tick
+    // measures from the last known-good one.
+    if (!Number.isFinite(nowMs)) {
+      return this.uniforms();
+    }
+
     const dt = this.lastTimestamp === null ? 0 : (nowMs - this.lastTimestamp) / 1000;
     this.lastTimestamp = nowMs;
 

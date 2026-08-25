@@ -67,3 +67,32 @@ describe('integrateSpring large-delta clamp', () => {
     expect(huge).toEqual(clamped);
   });
 });
+
+describe('integrateSpring non-finite and negative deltas', () => {
+  it('refuses a NaN or infinite delta instead of poisoning the accumulator', () => {
+    let state = createSpringState(0);
+    for (let i = 0; i < 10; i++) {
+      state = integrateSpring(state, target, params, 1 / 60);
+    }
+
+    // NaN survives Math.min and the `accumulator + EPSILON >= FIXED_SUBSTEP`
+    // loop condition, so an unguarded integrator would stop stepping and
+    // return NaN forever after a single bad frame.
+    expect(integrateSpring(state, target, params, Number.NaN)).toEqual(state);
+    expect(integrateSpring(state, target, params, Number.POSITIVE_INFINITY)).toEqual(state);
+
+    const resumed = integrateSpring(state, target, params, 1 / 60);
+    expect(Number.isFinite(resumed.value)).toBe(true);
+    expect(resumed.value).not.toBe(state.value);
+  });
+
+  it('floors a negative delta at zero, matching OrbicSpring.advance(by:)', () => {
+    const start = createSpringState(0);
+    // Swift clamps with min(max(frameDelta, 0), maxFrameDelta); an unclamped
+    // TypeScript side would rewind the accumulator instead and drift out of
+    // golden-frame conformance.
+    expect(integrateSpring(start, target, params, -1)).toEqual(
+      integrateSpring(start, target, params, 0)
+    );
+  });
+});

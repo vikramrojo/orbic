@@ -27,8 +27,13 @@ final class SpringIntegratorTests: XCTestCase {
     /// Runs a fresh transition to exactly `time` seconds at a fixed frame
     /// rate, one `advance(by:)` call per rendered frame — the same way a
     /// real render loop would drive it.
-    private func run(atFPS fps: Double, upTo time: Double) -> OrbicSpring {
-        var spring = freshSpring()
+    private func run(
+        atFPS fps: Double,
+        upTo time: Double,
+        from: OrbicPreset = .subtle,
+        to: OrbicPreset = .active
+    ) -> OrbicSpring {
+        var spring = OrbicSpring(transitioningFrom: from, to: to)
         let dt = 1.0 / fps
         let frameCount = Int((time * fps).rounded())
         for _ in 0..<frameCount {
@@ -42,15 +47,48 @@ final class SpringIntegratorTests: XCTestCase {
         // exact multiple of 1/60 s and 1/120 s — no rate lands mid-substep.
         let checkpoints: [Double] = [0.1, 0.3, 0.6, 1.2]
 
-        for t in checkpoints {
-            let at30 = run(atFPS: 30, upTo: t)
-            let at60 = run(atFPS: 60, upTo: t)
-            let at120 = run(atFPS: 120, upTo: t)
+        // Every ordered preset pair, not just the stiffest one: frame-rate
+        // independence is a property of the accumulator, but the substep
+        // count that exercises it depends on stiffness/damping/mass, so a
+        // bug confined to the softer or more heavily damped configurations
+        // would survive a single-transition test.
+        for from in OrbicPreset.allCases {
+            for to in OrbicPreset.allCases where to != from {
+                for t in checkpoints {
+                    let at30 = run(atFPS: 30, upTo: t, from: from, to: to)
+                    let at60 = run(atFPS: 60, upTo: t, from: from, to: to)
+                    let at120 = run(atFPS: 120, upTo: t, from: from, to: to)
 
-            assertChannelsEqual(at30.value, at60.value, accuracy: tolerance, "30fps vs 60fps @ t=\(t)")
-            assertChannelsEqual(at60.value, at120.value, accuracy: tolerance, "60fps vs 120fps @ t=\(t)")
-            assertChannelsEqual(at30.value, at120.value, accuracy: tolerance, "30fps vs 120fps @ t=\(t)")
+                    let pair = "\(from.rawValue)->\(to.rawValue)"
+                    assertChannelsEqual(at30.value, at60.value, accuracy: tolerance, "\(pair) 30fps vs 60fps @ t=\(t)")
+                    assertChannelsEqual(at60.value, at120.value, accuracy: tolerance, "\(pair) 60fps vs 120fps @ t=\(t)")
+                    assertChannelsEqual(at30.value, at120.value, accuracy: tolerance, "\(pair) 30fps vs 120fps @ t=\(t)")
+                }
+            }
         }
+    }
+
+    // MARK: - Non-finite frame deltas
+
+    /// A NaN or infinite delta must be refused outright rather than added to
+    /// the accumulator: NaN survives both the clamp and the substep loop
+    /// condition, so without this guard the spring would stop stepping and
+    /// every channel would read NaN for the lifetime of the instance.
+    func testNonFiniteFrameDeltaIsRefused() {
+        var spring = freshSpring()
+        for _ in 0..<10 { spring.advance(by: 1.0 / 60.0) }
+        let before = spring.value
+
+        spring.advance(by: .nan)
+        assertChannelsEqual(spring.value, before, accuracy: 1e-12, "NaN delta must not change state")
+
+        spring.advance(by: .infinity)
+        assertChannelsEqual(spring.value, before, accuracy: 1e-12, "infinite delta must not change state")
+
+        // ...and the spring still integrates normally afterwards.
+        spring.advance(by: 1.0 / 60.0)
+        XCTAssertTrue(spring.value.energy.isFinite, "spring must keep stepping after a rejected delta")
+        XCTAssertNotEqual(spring.value.energy, before.energy, "spring must resume advancing")
     }
 
     // MARK: - 2. Accumulator fidelity

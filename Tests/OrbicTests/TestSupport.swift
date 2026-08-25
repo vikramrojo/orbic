@@ -22,6 +22,10 @@ struct GoldenFrameFixture: Decodable {
         /// paired back up with `sampleTimes` by parsing each key as a
         /// `Double` in `GoldenFrameFixture.Transition.orderedSamples`.
         let samples: [String: [String: Double]]
+        /// Channel velocities at the same checkpoints, keyed identically to
+        /// `samples`. Optional so an older fixture that predates velocity
+        /// recording still decodes.
+        let velocities: [String: [String: Double]]?
 
         struct SpringParams: Decodable {
             let stiffness: Double
@@ -37,6 +41,13 @@ struct GoldenFrameFixture: Decodable {
                 guard let time = Double(key) else { return nil }
                 return (time, values)
             }.sorted { $0.time < $1.time }
+        }
+
+        /// Velocities for `time`, looked up by the same string key
+        /// `orderedSamples` parsed back into a `Double`.
+        func velocities(atKeyFor time: Double) -> [String: Double]? {
+            guard let velocities else { return nil }
+            return velocities.first { Double($0.key) == time }?.value
         }
     }
 }

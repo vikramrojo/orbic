@@ -21,13 +21,22 @@ function simulateTransition(from: PresetName, to: PresetName) {
   }
 
   const samples: Record<string, Record<Channel, number>> = {};
+  // Velocities are recorded alongside positions because position alone does
+  // not pin down the integrator: an implementation that updates velocity in
+  // the wrong order (explicit rather than semi-implicit Euler) can match
+  // every sampled position at these checkpoints and still carry the wrong
+  // velocity into the next frame, diverging immediately afterwards.
+  const velocities: Record<string, Record<Channel, number>> = {};
 
   const recordSample = (label: number) => {
     const sample = {} as Record<Channel, number>;
+    const velocity = {} as Record<Channel, number>;
     for (const channel of CHANNELS) {
       sample[channel] = Number(states[channel].value.toFixed(6));
+      velocity[channel] = Number(states[channel].velocity.toFixed(6));
     }
     samples[label.toString()] = sample;
+    velocities[label.toString()] = velocity;
   };
 
   let sampleIndex = 0;
@@ -54,7 +63,7 @@ function simulateTransition(from: PresetName, to: PresetName) {
   // The resolved spring params (including `mass`) are recorded per transition
   // so Swift can cross-check its own resolveSpring/spring(from:to:) output
   // against this fixture too, not just the resulting channel values.
-  return { from, to, spring: params, sampleTimes: SAMPLE_TIMES, samples };
+  return { from, to, spring: params, sampleTimes: SAMPLE_TIMES, samples, velocities };
 }
 
 const transitions = [];

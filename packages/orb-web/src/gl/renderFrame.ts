@@ -88,7 +88,7 @@ export function renderFrame({
   gl.drawArrays(gl.TRIANGLES, 0, 3);
 
   resizeCanvasIfNeeded(canvas, bufferWidth, bufferHeight);
-  const ctx2d = canvas.getContext('2d');
+  const ctx2d = context2d(canvas);
   if (ctx2d) {
     // The resize above only clears when the size changed; when it's
     // unchanged this clearRect is what actually erases the previous frame
@@ -96,6 +96,23 @@ export function renderFrame({
     ctx2d.clearRect(0, 0, bufferWidth, bufferHeight);
     ctx2d.drawImage(glCanvas, 0, 0, bufferWidth, bufferHeight);
   }
+}
+
+/**
+ * Per-canvas 2D context cache. `getContext('2d')` returns the same object on
+ * every call, so re-acquiring it on every animated frame is pure overhead;
+ * the WeakMap keeps the lookup off the hot path without pinning canvases that
+ * have been unmounted.
+ */
+const contexts2d = new WeakMap<HTMLCanvasElement, CanvasRenderingContext2D>();
+
+function context2d(canvas: HTMLCanvasElement): CanvasRenderingContext2D | null {
+  const cached = contexts2d.get(canvas);
+  if (cached) return cached;
+
+  const ctx = canvas.getContext('2d');
+  if (ctx) contexts2d.set(canvas, ctx);
+  return ctx;
 }
 
 /** Resizes a canvas's drawing buffer only if it actually changed — see the note in `renderFrame`. */
@@ -114,7 +131,7 @@ function paintFallback(
   uniforms: OrbUniforms
 ): void {
   resizeCanvasIfNeeded(canvas, bufferWidth, bufferHeight);
-  const ctx = canvas.getContext('2d');
+  const ctx = context2d(canvas);
   if (!ctx) return;
   ctx.clearRect(0, 0, bufferWidth, bufferHeight);
   ctx.fillStyle = fallbackColorFromChannels(uniforms);

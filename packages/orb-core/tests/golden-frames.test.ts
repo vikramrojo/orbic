@@ -36,6 +36,26 @@ describe('golden-frames fixture', () => {
     }
   });
 
+  it('records channel velocities at every sample time, so Swift can pin the integrator ordering', () => {
+    for (const transition of fixture.transitions) {
+      for (const time of transition.sampleTimes) {
+        const velocity = transition.velocities[String(time)];
+        expect(velocity).toBeDefined();
+        for (const channel of CHANNELS) {
+          expect(typeof velocity[channel]).toBe('number');
+        }
+      }
+    }
+  });
+
+  it('starts every transition at rest — every channel velocity is zero at t=0', () => {
+    for (const transition of fixture.transitions) {
+      for (const channel of CHANNELS) {
+        expect(transition.velocities['0'][channel]).toBe(0);
+      }
+    }
+  });
+
   it('starts every transition at the source preset and records the fixed substep', () => {
     expect(fixture.fixedSubstep).toBeCloseTo(1 / 120, 9);
   });

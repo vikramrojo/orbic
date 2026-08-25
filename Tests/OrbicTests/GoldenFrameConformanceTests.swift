@@ -9,6 +9,10 @@ import XCTest
 /// implementations drift".
 final class GoldenFrameConformanceTests: XCTestCase {
     private let tolerance = 0.001
+    /// Velocity is a rate, not a position, so it carries a larger absolute
+    /// magnitude (single digits at these stiffnesses) and needs a
+    /// correspondingly looser absolute tolerance than the channel values.
+    private let velocityTolerance = 0.01
 
     func testGoldenFrames() throws {
         let fixture: GoldenFrameFixture
@@ -33,6 +37,7 @@ final class GoldenFrameConformanceTests: XCTestCase {
 
         var mismatches: [String] = []
         var missingPresets: [String] = []
+        var velocitiesChecked = true
 
         for transition in fixture.transitions {
             guard let from = OrbicPreset(rawValue: transition.from),
@@ -80,8 +85,34 @@ final class GoldenFrameConformanceTests: XCTestCase {
                         )
                     }
                 }
+
+                // Velocity is checked as well as position: matching positions
+                // at these checkpoints does not prove the integrator steps
+                // velocity the same way (an explicit-Euler ordering bug can
+                // agree here and diverge on the very next frame), which is
+                // exactly the drift this conformance test exists to catch.
+                guard let expectedVelocities = transition.velocities(atKeyFor: checkpoint.time) else {
+                    velocitiesChecked = false
+                    continue
+                }
+                for channel in fixture.channels {
+                    guard let expected = expectedVelocities[channel] else { continue }
+                    guard let actual = spring.velocity.value(named: channel) else { continue }
+                    let diff = actual - expected
+                    if abs(diff) > velocityTolerance {
+                        mismatches.append(
+                            "\(transition.from)->\(transition.to) @ t=\(checkpoint.time) [\(channel) velocity]: " +
+                            "expected \(expected), got \(actual), diff \(diff)"
+                        )
+                    }
+                }
             }
         }
+
+        XCTAssertTrue(
+            velocitiesChecked,
+            "fixture is missing recorded velocities — regenerate it with `pnpm generate:fixtures`"
+        )
 
         if !missingPresets.isEmpty {
             XCTFail("Fixture referenced unknown preset names: \(missingPresets.joined(separator: ", "))")

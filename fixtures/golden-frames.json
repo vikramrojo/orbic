@@ -75,6 +75,56 @@
           "warmth": 0.55,
           "pulse": 1.4
         }
+      },
+      "velocities": {
+        "0": {
+          "energy": 0,
+          "coherence": 0,
+          "warmth": 0,
+          "pulse": 0
+        },
+        "1": {
+          "energy": 0.000787,
+          "coherence": -0.000323,
+          "warmth": 0.000216,
+          "pulse": 0.001186
+        },
+        "0.05": {
+          "energy": 5.852722,
+          "coherence": -2.405228,
+          "warmth": 1.603486,
+          "pulse": 8.819171
+        },
+        "0.1": {
+          "energy": 5.572098,
+          "coherence": -2.289903,
+          "warmth": 1.526602,
+          "pulse": 8.396312
+        },
+        "0.2": {
+          "energy": 0.847542,
+          "coherence": -0.348305,
+          "warmth": 0.232203,
+          "pulse": 1.277118
+        },
+        "0.4": {
+          "energy": -0.221503,
+          "coherence": 0.091029,
+          "warmth": -0.060686,
+          "pulse": -0.333772
+        },
+        "0.6": {
+          "energy": 0.040741,
+          "coherence": -0.016743,
+          "warmth": 0.011162,
+          "pulse": 0.061391
+        },
+        "1.5": {
+          "energy": 0.000007,
+          "coherence": -0.000003,
+          "warmth": 0.000002,
+          "pulse": 0.00001
+        }
       }
     },
     {
@@ -143,6 +193,56 @@
           "coherence": 0.740001,
           "warmth": 0.120004,
           "pulse": 0.549996
+        }
+      },
+      "velocities": {
+        "0": {
+          "energy": 0,
+          "coherence": 0,
+          "warmth": 0,
+          "pulse": 0
+        },
+        "1": {
+          "energy": 0.001052,
+          "coherence": -0.000561,
+          "warmth": -0.001613,
+          "pulse": 0.001753
+        },
+        "0.05": {
+          "energy": 0.64085,
+          "coherence": -0.341787,
+          "warmth": -0.982637,
+          "pulse": 1.068083
+        },
+        "0.1": {
+          "energy": 0.804773,
+          "coherence": -0.429212,
+          "warmth": -1.233986,
+          "pulse": 1.341289
+        },
+        "0.2": {
+          "energy": 0.504505,
+          "coherence": -0.269069,
+          "warmth": -0.773575,
+          "pulse": 0.840842
+        },
+        "0.4": {
+          "energy": -0.029448,
+          "coherence": 0.015706,
+          "warmth": 0.045153,
+          "pulse": -0.04908
+        },
+        "0.6": {
+          "energy": -0.023977,
+          "coherence": 0.012788,
+          "warmth": 0.036764,
+          "pulse": -0.039961
+        },
+        "1.5": {
+          "energy": 0.000006,
+          "coherence": -0.000003,
+          "warmth": -0.000009,
+          "pulse": 0.00001
         }
       }
     },
@@ -213,6 +313,56 @@
           "warmth": 0.899991,
           "pulse": 0.749993
         }
+      },
+      "velocities": {
+        "0": {
+          "energy": 0,
+          "coherence": 0,
+          "warmth": 0,
+          "pulse": 0
+        },
+        "1": {
+          "energy": 0.002805,
+          "coherence": -0.001543,
+          "warmth": 0.003857,
+          "pulse": 0.003156
+        },
+        "0.05": {
+          "energy": 1.708933,
+          "coherence": -0.939913,
+          "warmth": 2.349783,
+          "pulse": 1.92255
+        },
+        "0.1": {
+          "energy": 2.146062,
+          "coherence": -1.180334,
+          "warmth": 2.950835,
+          "pulse": 2.41432
+        },
+        "0.2": {
+          "energy": 1.345347,
+          "coherence": -0.739941,
+          "warmth": 1.849853,
+          "pulse": 1.513516
+        },
+        "0.4": {
+          "energy": -0.078528,
+          "coherence": 0.04319,
+          "warmth": -0.107976,
+          "pulse": -0.088344
+        },
+        "0.6": {
+          "energy": -0.063938,
+          "coherence": 0.035166,
+          "warmth": -0.087914,
+          "pulse": -0.07193
+        },
+        "1.5": {
+          "energy": 0.000016,
+          "coherence": -0.000009,
+          "warmth": 0.000022,
+          "pulse": 0.000018
+        }
       }
     },
     {
@@ -281,6 +431,56 @@
           "coherence": 0.68,
           "warmth": 0.5,
           "pulse": 1.999996
+        }
+      },
+      "velocities": {
+        "0": {
+          "energy": 0,
+          "coherence": 0,
+          "warmth": 0,
+          "pulse": 0
+        },
+        "1": {
+          "energy": 0.00008,
+          "coherence": -0.000034,
+          "warmth": 0.000036,
+          "pulse": 0.00041
+        },
+        "0.05": {
+          "energy": 1.669972,
+          "coherence": -0.708473,
+          "warmth": 0.759078,
+          "pulse": 8.602886
+        },
+        "0.1": {
+          "energy": 1.940896,
+          "coherence": -0.823411,
+          "warmth": 0.882226,
+          "pulse": 9.998557
+        },
+        "0.2": {
+          "energy": 0.976813,
+          "coherence": -0.414406,
+          "warmth": 0.444006,
+          "pulse": 5.032069
+        },
+        "0.4": {
+          "energy": -0.103388,
+          "coherence": 0.043862,
+          "warmth": -0.046995,
+          "pulse": -0.532607
+        },
+        "0.6": {
+          "energy": -0.020554,
+          "coherence": 0.00872,
+          "warmth": -0.009343,
+          "pulse": -0.105882
+        },
+        "1.5": {
+          "energy": 0.000014,
+          "coherence": -0.000006,
+          "warmth": 0.000007,
+          "pulse": 0.000074
         }
       }
     },
@@ -351,6 +551,56 @@
           "warmth": 0.350005,
           "pulse": 0.300028
         }
+      },
+      "velocities": {
+        "0": {
+          "energy": 0,
+          "coherence": 0,
+          "warmth": 0,
+          "pulse": 0
+        },
+        "1": {
+          "energy": -0.018509,
+          "coherence": 0.007606,
+          "warmth": -0.005071,
+          "pulse": -0.02789
+        },
+        "0.05": {
+          "energy": -1.357814,
+          "coherence": 0.558006,
+          "warmth": -0.372004,
+          "pulse": -2.046021
+        },
+        "0.1": {
+          "energy": -1.899942,
+          "coherence": 0.780798,
+          "warmth": -0.520532,
+          "pulse": -2.862927
+        },
+        "0.2": {
+          "energy": -1.845612,
+          "coherence": 0.758471,
+          "warmth": -0.505647,
+          "pulse": -2.781059
+        },
+        "0.4": {
+          "energy": -0.843436,
+          "coherence": 0.346618,
+          "warmth": -0.231078,
+          "pulse": -1.270931
+        },
+        "0.6": {
+          "energy": -0.276182,
+          "coherence": 0.113499,
+          "warmth": -0.075666,
+          "pulse": -0.416164
+        },
+        "1.5": {
+          "energy": -0.000269,
+          "coherence": 0.00011,
+          "warmth": -0.000074,
+          "pulse": -0.000405
+        }
       }
     },
     {
@@ -419,6 +669,56 @@
           "coherence": 0.739996,
           "warmth": 0.120007,
           "pulse": 0.550014
+        }
+      },
+      "velocities": {
+        "0": {
+          "energy": 0,
+          "coherence": 0,
+          "warmth": 0,
+          "pulse": 0
+        },
+        "1": {
+          "energy": -0.004068,
+          "coherence": 0.001543,
+          "warmth": -0.003016,
+          "pulse": -0.005961
+        },
+        "0.05": {
+          "energy": -2.477953,
+          "coherence": 0.939913,
+          "warmth": -1.837103,
+          "pulse": -3.631483
+        },
+        "0.1": {
+          "energy": -3.11179,
+          "coherence": 1.180334,
+          "warmth": -2.307016,
+          "pulse": -4.560381
+        },
+        "0.2": {
+          "energy": -1.950754,
+          "coherence": 0.739941,
+          "warmth": -1.446248,
+          "pulse": -2.858863
+        },
+        "0.4": {
+          "energy": 0.113865,
+          "coherence": -0.04319,
+          "warmth": 0.084417,
+          "pulse": 0.166871
+        },
+        "0.6": {
+          "energy": 0.09271,
+          "coherence": -0.035166,
+          "warmth": 0.068733,
+          "pulse": 0.135867
+        },
+        "1.5": {
+          "energy": -0.000023,
+          "coherence": 0.000009,
+          "warmth": -0.000017,
+          "pulse": -0.000034
         }
       }
     },
@@ -489,6 +789,56 @@
           "warmth": 0.899994,
           "pulse": 0.75001
         }
+      },
+      "velocities": {
+        "0": {
+          "energy": 0,
+          "coherence": 0,
+          "warmth": 0,
+          "pulse": 0
+        },
+        "1": {
+          "energy": -0.002314,
+          "coherence": 0.000561,
+          "warmth": 0.002455,
+          "pulse": -0.004558
+        },
+        "0.05": {
+          "energy": -1.40987,
+          "coherence": 0.341787,
+          "warmth": 1.495316,
+          "pulse": -2.777016
+        },
+        "0.1": {
+          "energy": -1.770501,
+          "coherence": 0.429212,
+          "warmth": 1.877804,
+          "pulse": -3.48735
+        },
+        "0.2": {
+          "energy": -1.109912,
+          "coherence": 0.269069,
+          "warmth": 1.177179,
+          "pulse": -2.186189
+        },
+        "0.4": {
+          "energy": 0.064785,
+          "coherence": -0.015706,
+          "warmth": -0.068712,
+          "pulse": 0.127608
+        },
+        "0.6": {
+          "energy": 0.052749,
+          "coherence": -0.012788,
+          "warmth": -0.055945,
+          "pulse": 0.103899
+        },
+        "1.5": {
+          "energy": -0.000013,
+          "coherence": 0.000003,
+          "warmth": 0.000014,
+          "pulse": -0.000026
+        }
       }
     },
     {
@@ -557,6 +907,56 @@
           "coherence": 0.68,
           "warmth": 0.5,
           "pulse": 2
+        }
+      },
+      "velocities": {
+        "0": {
+          "energy": 0,
+          "coherence": 0,
+          "warmth": 0,
+          "pulse": 0
+        },
+        "1": {
+          "energy": -0.000056,
+          "coherence": 0.000022,
+          "warmth": -0.000007,
+          "pulse": 0.000083
+        },
+        "0.05": {
+          "energy": -1.682728,
+          "coherence": 0.673091,
+          "warmth": -0.210341,
+          "pulse": 2.524092
+        },
+        "0.1": {
+          "energy": -1.816742,
+          "coherence": 0.726697,
+          "warmth": -0.227093,
+          "pulse": 2.725113
+        },
+        "0.2": {
+          "energy": -1.039704,
+          "coherence": 0.415882,
+          "warmth": -0.129963,
+          "pulse": 1.559556
+        },
+        "0.4": {
+          "energy": -0.157509,
+          "coherence": 0.063004,
+          "warmth": -0.019689,
+          "pulse": 0.236263
+        },
+        "0.6": {
+          "energy": -0.015808,
+          "coherence": 0.006323,
+          "warmth": -0.001976,
+          "pulse": 0.023712
+        },
+        "1.5": {
+          "energy": 0,
+          "coherence": 0,
+          "warmth": 0,
+          "pulse": 0
         }
       }
     },
@@ -627,6 +1027,56 @@
           "warmth": 0.349996,
           "pulse": 0.300004
         }
+      },
+      "velocities": {
+        "0": {
+          "energy": 0,
+          "coherence": 0,
+          "warmth": 0,
+          "pulse": 0
+        },
+        "1": {
+          "energy": -0.001052,
+          "coherence": 0.000561,
+          "warmth": 0.001613,
+          "pulse": -0.001753
+        },
+        "0.05": {
+          "energy": -0.64085,
+          "coherence": 0.341787,
+          "warmth": 0.982637,
+          "pulse": -1.068083
+        },
+        "0.1": {
+          "energy": -0.804773,
+          "coherence": 0.429212,
+          "warmth": 1.233986,
+          "pulse": -1.341289
+        },
+        "0.2": {
+          "energy": -0.504505,
+          "coherence": 0.269069,
+          "warmth": 0.773575,
+          "pulse": -0.840842
+        },
+        "0.4": {
+          "energy": 0.029448,
+          "coherence": -0.015706,
+          "warmth": -0.045153,
+          "pulse": 0.04908
+        },
+        "0.6": {
+          "energy": 0.023977,
+          "coherence": -0.012788,
+          "warmth": -0.036764,
+          "pulse": 0.039961
+        },
+        "1.5": {
+          "energy": -0.000006,
+          "coherence": 0.000003,
+          "warmth": 0.000009,
+          "pulse": -0.00001
+        }
       }
     },
     {
@@ -695,6 +1145,56 @@
           "coherence": 0.520004,
           "warmth": 0.549993,
           "pulse": 1.399986
+        }
+      },
+      "velocities": {
+        "0": {
+          "energy": 0,
+          "coherence": 0,
+          "warmth": 0,
+          "pulse": 0
+        },
+        "1": {
+          "energy": 0.004068,
+          "coherence": -0.001543,
+          "warmth": 0.003016,
+          "pulse": 0.005961
+        },
+        "0.05": {
+          "energy": 2.477953,
+          "coherence": -0.939913,
+          "warmth": 1.837103,
+          "pulse": 3.631483
+        },
+        "0.1": {
+          "energy": 3.11179,
+          "coherence": -1.180334,
+          "warmth": 2.307016,
+          "pulse": 4.560381
+        },
+        "0.2": {
+          "energy": 1.950754,
+          "coherence": -0.739941,
+          "warmth": 1.446248,
+          "pulse": 2.858863
+        },
+        "0.4": {
+          "energy": -0.113865,
+          "coherence": 0.04319,
+          "warmth": -0.084417,
+          "pulse": -0.166871
+        },
+        "0.6": {
+          "energy": -0.09271,
+          "coherence": 0.035166,
+          "warmth": -0.068733,
+          "pulse": -0.135867
+        },
+        "1.5": {
+          "energy": 0.000023,
+          "coherence": -0.000009,
+          "warmth": 0.000017,
+          "pulse": 0.000034
         }
       }
     },
@@ -765,6 +1265,56 @@
           "warmth": 0.899905,
           "pulse": 0.749976
         }
+      },
+      "velocities": {
+        "0": {
+          "energy": 0,
+          "coherence": 0,
+          "warmth": 0,
+          "pulse": 0
+        },
+        "1": {
+          "energy": 0.004728,
+          "coherence": -0.002648,
+          "warmth": 0.014751,
+          "pulse": 0.003782
+        },
+        "0.05": {
+          "energy": 0.719308,
+          "coherence": -0.402813,
+          "warmth": 2.244242,
+          "pulse": 0.575447
+        },
+        "0.1": {
+          "energy": 0.854649,
+          "coherence": -0.478603,
+          "warmth": 2.666504,
+          "pulse": 0.683719
+        },
+        "0.2": {
+          "energy": 0.634075,
+          "coherence": -0.355082,
+          "warmth": 1.978315,
+          "pulse": 0.50726
+        },
+        "0.4": {
+          "energy": 0.206786,
+          "coherence": -0.1158,
+          "warmth": 0.645172,
+          "pulse": 0.165429
+        },
+        "0.6": {
+          "energy": 0.059461,
+          "coherence": -0.033298,
+          "warmth": 0.185519,
+          "pulse": 0.047569
+        },
+        "1.5": {
+          "energy": 0.000199,
+          "coherence": -0.000111,
+          "warmth": 0.00062,
+          "pulse": 0.000159
+        }
       }
     },
     {
@@ -833,6 +1383,56 @@
           "coherence": 0.680001,
           "warmth": 0.499994,
           "pulse": 1.999977
+        }
+      },
+      "velocities": {
+        "0": {
+          "energy": 0,
+          "coherence": 0,
+          "warmth": 0,
+          "pulse": 0
+        },
+        "1": {
+          "energy": 0.001262,
+          "coherence": -0.000421,
+          "warmth": 0.002665,
+          "pulse": 0.010169
+        },
+        "0.05": {
+          "energy": 0.76902,
+          "coherence": -0.25634,
+          "warmth": 1.623486,
+          "pulse": 6.194883
+        },
+        "0.1": {
+          "energy": 0.965728,
+          "coherence": -0.321909,
+          "warmth": 2.038759,
+          "pulse": 7.779474
+        },
+        "0.2": {
+          "energy": 0.605406,
+          "coherence": -0.201802,
+          "warmth": 1.27808,
+          "pulse": 4.876884
+        },
+        "0.4": {
+          "energy": -0.035337,
+          "coherence": 0.011779,
+          "warmth": -0.074601,
+          "pulse": -0.284663
+        },
+        "0.6": {
+          "energy": -0.028772,
+          "coherence": 0.009591,
+          "warmth": -0.060741,
+          "pulse": -0.231774
+        },
+        "1.5": {
+          "energy": 0.000007,
+          "coherence": -0.000002,
+          "warmth": 0.000015,
+          "pulse": 0.000057
         }
       }
     },
@@ -903,6 +1503,56 @@
           "warmth": 0.350009,
           "pulse": 0.300007
         }
+      },
+      "velocities": {
+        "0": {
+          "energy": 0,
+          "coherence": 0,
+          "warmth": 0,
+          "pulse": 0
+        },
+        "1": {
+          "energy": -0.002805,
+          "coherence": 0.001543,
+          "warmth": -0.003857,
+          "pulse": -0.003156
+        },
+        "0.05": {
+          "energy": -1.708933,
+          "coherence": 0.939913,
+          "warmth": -2.349783,
+          "pulse": -1.92255
+        },
+        "0.1": {
+          "energy": -2.146062,
+          "coherence": 1.180334,
+          "warmth": -2.950835,
+          "pulse": -2.41432
+        },
+        "0.2": {
+          "energy": -1.345347,
+          "coherence": 0.739941,
+          "warmth": -1.849853,
+          "pulse": -1.513516
+        },
+        "0.4": {
+          "energy": 0.078528,
+          "coherence": -0.04319,
+          "warmth": 0.107976,
+          "pulse": 0.088344
+        },
+        "0.6": {
+          "energy": 0.063938,
+          "coherence": -0.035166,
+          "warmth": 0.087914,
+          "pulse": 0.07193
+        },
+        "1.5": {
+          "energy": -0.000016,
+          "coherence": 0.000009,
+          "warmth": -0.000022,
+          "pulse": -0.000018
+        }
       }
     },
     {
@@ -971,6 +1621,56 @@
           "coherence": 0.520001,
           "warmth": 0.550006,
           "pulse": 1.39999
+        }
+      },
+      "velocities": {
+        "0": {
+          "energy": 0,
+          "coherence": 0,
+          "warmth": 0,
+          "pulse": 0
+        },
+        "1": {
+          "energy": 0.002314,
+          "coherence": -0.000561,
+          "warmth": -0.002455,
+          "pulse": 0.004558
+        },
+        "0.05": {
+          "energy": 1.40987,
+          "coherence": -0.341787,
+          "warmth": -1.495316,
+          "pulse": 2.777016
+        },
+        "0.1": {
+          "energy": 1.770501,
+          "coherence": -0.429212,
+          "warmth": -1.877804,
+          "pulse": 3.48735
+        },
+        "0.2": {
+          "energy": 1.109912,
+          "coherence": -0.269069,
+          "warmth": -1.177179,
+          "pulse": 2.186189
+        },
+        "0.4": {
+          "energy": -0.064785,
+          "coherence": 0.015706,
+          "warmth": 0.068712,
+          "pulse": -0.127608
+        },
+        "0.6": {
+          "energy": -0.052749,
+          "coherence": 0.012788,
+          "warmth": 0.055945,
+          "pulse": -0.103899
+        },
+        "1.5": {
+          "energy": 0.000013,
+          "coherence": -0.000003,
+          "warmth": -0.000014,
+          "pulse": 0.000026
         }
       }
     },
@@ -1041,6 +1741,56 @@
           "warmth": 0.119995,
           "pulse": 0.549999
         }
+      },
+      "velocities": {
+        "0": {
+          "energy": 0,
+          "coherence": 0,
+          "warmth": 0,
+          "pulse": 0
+        },
+        "1": {
+          "energy": -0.00114,
+          "coherence": 0.000638,
+          "warmth": -0.003557,
+          "pulse": -0.000912
+        },
+        "0.05": {
+          "energy": -0.963575,
+          "coherence": 0.539602,
+          "warmth": -3.006353,
+          "pulse": -0.77086
+        },
+        "0.1": {
+          "energy": -1.205821,
+          "coherence": 0.67526,
+          "warmth": -3.762162,
+          "pulse": -0.964657
+        },
+        "0.2": {
+          "energy": -0.805997,
+          "coherence": 0.451358,
+          "warmth": -2.514711,
+          "pulse": -0.644798
+        },
+        "0.4": {
+          "energy": -0.035426,
+          "coherence": 0.019839,
+          "warmth": -0.110529,
+          "pulse": -0.028341
+        },
+        "0.6": {
+          "energy": 0.031141,
+          "coherence": -0.017439,
+          "warmth": 0.097161,
+          "pulse": 0.024913
+        },
+        "1.5": {
+          "energy": 0.000024,
+          "coherence": -0.000014,
+          "warmth": 0.000076,
+          "pulse": 0.000019
+        }
       }
     },
     {
@@ -1109,6 +1859,56 @@
           "coherence": 0.679999,
           "warmth": 0.500006,
           "pulse": 1.99998
+        }
+      },
+      "velocities": {
+        "0": {
+          "energy": 0,
+          "coherence": 0,
+          "warmth": 0,
+          "pulse": 0
+        },
+        "1": {
+          "energy": -0.000491,
+          "coherence": 0.000561,
+          "warmth": -0.002805,
+          "pulse": 0.008766
+        },
+        "0.05": {
+          "energy": -0.299063,
+          "coherence": 0.341787,
+          "warmth": -1.708933,
+          "pulse": 5.340416
+        },
+        "0.1": {
+          "energy": -0.375561,
+          "coherence": 0.429212,
+          "warmth": -2.146062,
+          "pulse": 6.706443
+        },
+        "0.2": {
+          "energy": -0.235436,
+          "coherence": 0.269069,
+          "warmth": -1.345347,
+          "pulse": 4.20421
+        },
+        "0.4": {
+          "energy": 0.013742,
+          "coherence": -0.015706,
+          "warmth": 0.078528,
+          "pulse": -0.245399
+        },
+        "0.6": {
+          "energy": 0.011189,
+          "coherence": -0.012788,
+          "warmth": 0.063938,
+          "pulse": -0.199805
+        },
+        "1.5": {
+          "energy": -0.000003,
+          "coherence": 0.000003,
+          "warmth": -0.000016,
+          "pulse": 0.00005
         }
       }
     },
@@ -1179,6 +1979,56 @@
           "warmth": 0.350002,
           "pulse": 0.300027
         }
+      },
+      "velocities": {
+        "0": {
+          "energy": 0,
+          "coherence": 0,
+          "warmth": 0,
+          "pulse": 0
+        },
+        "1": {
+          "energy": -0.002314,
+          "coherence": 0.000982,
+          "warmth": -0.001052,
+          "pulse": -0.011922
+        },
+        "0.05": {
+          "energy": -1.40987,
+          "coherence": 0.598127,
+          "warmth": -0.64085,
+          "pulse": -7.262966
+        },
+        "0.1": {
+          "energy": -1.770501,
+          "coherence": 0.751122,
+          "warmth": -0.804773,
+          "pulse": -9.120763
+        },
+        "0.2": {
+          "energy": -1.109912,
+          "coherence": 0.470872,
+          "warmth": -0.504505,
+          "pulse": -5.717726
+        },
+        "0.4": {
+          "energy": 0.064785,
+          "coherence": -0.027485,
+          "warmth": 0.029448,
+          "pulse": 0.333743
+        },
+        "0.6": {
+          "energy": 0.052749,
+          "coherence": -0.022378,
+          "warmth": 0.023977,
+          "pulse": 0.271735
+        },
+        "1.5": {
+          "energy": -0.000013,
+          "coherence": 0.000006,
+          "warmth": -0.000006,
+          "pulse": -0.000067
+        }
       }
     },
     {
@@ -1247,6 +2097,56 @@
           "coherence": 0.520002,
           "warmth": 0.549999,
           "pulse": 1.400006
+        }
+      },
+      "velocities": {
+        "0": {
+          "energy": 0,
+          "coherence": 0,
+          "warmth": 0,
+          "pulse": 0
+        },
+        "1": {
+          "energy": 0.005183,
+          "coherence": -0.002073,
+          "warmth": 0.000648,
+          "pulse": -0.007774
+        },
+        "0.05": {
+          "energy": 3.066803,
+          "coherence": -1.226721,
+          "warmth": 0.38335,
+          "pulse": -4.600205
+        },
+        "0.1": {
+          "energy": 3.344743,
+          "coherence": -1.337897,
+          "warmth": 0.418093,
+          "pulse": -5.017115
+        },
+        "0.2": {
+          "energy": 0.678749,
+          "coherence": -0.2715,
+          "warmth": 0.084844,
+          "pulse": -1.018123
+        },
+        "0.4": {
+          "energy": -0.302349,
+          "coherence": 0.12094,
+          "warmth": -0.037794,
+          "pulse": 0.453523
+        },
+        "0.6": {
+          "energy": 0.094498,
+          "coherence": -0.037799,
+          "warmth": 0.011812,
+          "pulse": -0.141747
+        },
+        "1.5": {
+          "energy": 0.000172,
+          "coherence": -0.000069,
+          "warmth": 0.000022,
+          "pulse": -0.000259
         }
       }
     },
@@ -1317,6 +2217,56 @@
           "warmth": 0.120006,
           "pulse": 0.550023
         }
+      },
+      "velocities": {
+        "0": {
+          "energy": 0,
+          "coherence": 0,
+          "warmth": 0,
+          "pulse": 0
+        },
+        "1": {
+          "energy": -0.001262,
+          "coherence": 0.000421,
+          "warmth": -0.002665,
+          "pulse": -0.010169
+        },
+        "0.05": {
+          "energy": -0.76902,
+          "coherence": 0.25634,
+          "warmth": -1.623486,
+          "pulse": -6.194883
+        },
+        "0.1": {
+          "energy": -0.965728,
+          "coherence": 0.321909,
+          "warmth": -2.038759,
+          "pulse": -7.779474
+        },
+        "0.2": {
+          "energy": -0.605406,
+          "coherence": 0.201802,
+          "warmth": -1.27808,
+          "pulse": -4.876884
+        },
+        "0.4": {
+          "energy": 0.035337,
+          "coherence": -0.011779,
+          "warmth": 0.074601,
+          "pulse": 0.284663
+        },
+        "0.6": {
+          "energy": 0.028772,
+          "coherence": -0.009591,
+          "warmth": 0.060741,
+          "pulse": 0.231774
+        },
+        "1.5": {
+          "energy": -0.000007,
+          "coherence": 0.000002,
+          "warmth": -0.000015,
+          "pulse": -0.000057
+        }
       }
     },
     {
@@ -1385,6 +2335,56 @@
           "coherence": 0.600001,
           "warmth": 0.899994,
           "pulse": 0.75002
+        }
+      },
+      "velocities": {
+        "0": {
+          "energy": 0,
+          "coherence": 0,
+          "warmth": 0,
+          "pulse": 0
+        },
+        "1": {
+          "energy": 0.000491,
+          "coherence": -0.000561,
+          "warmth": 0.002805,
+          "pulse": -0.008766
+        },
+        "0.05": {
+          "energy": 0.299063,
+          "coherence": -0.341787,
+          "warmth": 1.708933,
+          "pulse": -5.340416
+        },
+        "0.1": {
+          "energy": 0.375561,
+          "coherence": -0.429212,
+          "warmth": 2.146062,
+          "pulse": -6.706443
+        },
+        "0.2": {
+          "energy": 0.235436,
+          "coherence": -0.269069,
+          "warmth": 1.345347,
+          "pulse": -4.20421
+        },
+        "0.4": {
+          "energy": -0.013742,
+          "coherence": 0.015706,
+          "warmth": -0.078528,
+          "pulse": 0.245399
+        },
+        "0.6": {
+          "energy": -0.011189,
+          "coherence": 0.012788,
+          "warmth": -0.063938,
+          "pulse": 0.199805
+        },
+        "1.5": {
+          "energy": 0.000003,
+          "coherence": -0.000003,
+          "warmth": 0.000016,
+          "pulse": -0.00005
         }
       }
     }

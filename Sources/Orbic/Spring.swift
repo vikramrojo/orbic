@@ -61,6 +61,12 @@ public struct OrbicSpring: Sendable {
     /// `fixedSubstep`-sized physics steps, leaving any remainder for the
     /// next call rather than discarding it.
     public mutating func advance(by frameDelta: Double) {
+        // NaN/infinity would survive the clamp below (Swift's min/max
+        // propagate NaN here) and permanently stall the accumulator, so the
+        // frame is refused outright. Mirrors the same guard in
+        // packages/orb-core/src/spring.ts.
+        guard frameDelta.isFinite else { return }
+
         let clamped = min(max(frameDelta, 0), Self.maxFrameDelta)
         accumulator += clamped
 

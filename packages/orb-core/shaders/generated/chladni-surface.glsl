@@ -261,6 +261,19 @@ const float SURFACE_KNEE = 2.4;
 // once it is and once a renderer exists to look at the result.
 const float SURFACE_BLUR_RADIUS = 0.006;
 
+// Known shape limitation, recorded with the provisional radius above: the
+// 5 taps below are the centre plus the four DIAGONAL neighbours, so the
+// kernel is diamond-shaped and carries no weight at the axis-aligned
+// offsets (+r,0), (-r,0), (0,+r), (0,-r). Detail that runs exactly
+// horizontally or vertically is therefore attenuated less than diagonal
+// detail of the same frequency. This is accepted for now -- it costs 4
+// field() evaluations rather than 8, and the shipped fields' grain is
+// isotropic enough that the bias is not visible -- but a 9-tap symmetric
+// kernel is the fix if a field ever ships with strong axis-aligned
+// structure. Note that widening the kernel changes the post-blur
+// brightness, so SURFACE_GAIN and SURFACE_KNEE above would have to be
+// re-measured alongside it.
+
 vec4 composite(vec2 p, float t, float energy, float coherence, float warmth, float pulse) {
     vec3 c0 = field(p, t, energy, coherence, warmth, pulse);
     vec3 c1 = field(p + vec2(SURFACE_BLUR_RADIUS, SURFACE_BLUR_RADIUS), t, energy, coherence, warmth, pulse);
