@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PRESET_NAMES } from '@orbic/core';
 import { Surface } from '../src/Surface';
-import { FIELD_NAMES } from '../src/runtime/resolveNames';
+import { FIELD_NAMES } from '@orbic/core';
 
 class FakeResizeObserver {
   static instances: FakeResizeObserver[] = [];

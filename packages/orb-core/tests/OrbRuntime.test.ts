@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { presetChannels, resolveSpring } from '@orbic/core';
-import { OrbRuntime } from '../../src/runtime/OrbRuntime';
+import { presetChannels, resolveSpring } from '../src/index';
+import { OrbRuntime } from '../src/OrbRuntime';
 
 describe('OrbRuntime construction', () => {
   it('starts at the initial preset resting values with zero elapsed time', () => {

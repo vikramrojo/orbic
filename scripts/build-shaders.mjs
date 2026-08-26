@@ -190,6 +190,62 @@ export type FieldName = keyof typeof FIELD_SHADERS;
 }
 
 /**
+ * Writes the canonical list of shipped field names into `@orbic/core`, so
+ * name resolution and the "first shipped field" fallback have ONE definition
+ * shared by web, native and (via Fields.swift) Swift — rather than each
+ * bundle deriving its own from its own generated shader module and drifting.
+ */
+export function writeCoreFieldNames(fieldsToArtifacts, outPath) {
+  const names = Object.keys(fieldsToArtifacts);
+  const entries = names.map((n) => `  '${n}',`).join('\n');
+
+  const module = `// GENERATED FILE — DO NOT EDIT.
+// Regenerate with \`node scripts/build-shaders.mjs\`. Sourced from
+// packages/orb-core/shaders/fields/*.orb via scripts/build-shaders.mjs's
+// writeCoreFieldNames.
+
+/** Every field shipped with this build, in a deterministic (sorted) order. */
+export const FIELD_NAMES = [
+${entries}
+] as const;
+
+export type FieldName = (typeof FIELD_NAMES)[number];
+`;
+
+  mkdirSync(dirname(outPath), { recursive: true });
+  writeFileSync(outPath, module);
+}
+
+/**
+ * Writes a generated TS module exporting each field's SkSL sources, for
+ * `@orbic/native` to hand to `Skia.RuntimeEffect.Make`. Mirrors
+ * `writeWebShaderModule`; only the `sksl` target is relevant to Skia, just as
+ * only `glsl` is relevant to web.
+ */
+export function writeNativeShaderModule(fieldsToArtifacts, outPath) {
+  const entries = Object.entries(fieldsToArtifacts).map(([fieldName, artifacts]) => {
+    const orbSource = artifacts.find((a) => a.shape === 'orb' && a.target === 'sksl').content;
+    const surfaceSource = artifacts.find((a) => a.shape === 'surface' && a.target === 'sksl').content;
+    return `  '${fieldName}': {\n    orb: ${JSON.stringify(orbSource)},\n    surface: ${JSON.stringify(surfaceSource)},\n  },`;
+  });
+
+  const module = `// GENERATED FILE — DO NOT EDIT.
+// Regenerate with \`node scripts/build-shaders.mjs\`. Sourced from
+// packages/orb-core/shaders/{fields,compositors,targets}/*.orb via
+// scripts/build-shaders.mjs's writeNativeShaderModule.
+
+export const FIELD_SHADERS = {
+${entries.join('\n')}
+} as const;
+
+export type FieldName = keyof typeof FIELD_SHADERS;
+`;
+
+  mkdirSync(dirname(outPath), { recursive: true });
+  writeFileSync(outPath, module);
+}
+
+/**
  * Writes the generated Swift list of shipped field names, so the Swift
  * bundle resolves `field` against exactly the same set — and the same
  * ordering, which decides the "first shipped field" fallback — as
@@ -230,6 +286,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const metalOutDir = resolve(rootDir, 'Sources/Orbic/Shaders');
   const webOutPath = resolve(rootDir, 'packages/orb-web/src/generated/shaders.ts');
   const swiftFieldsOutPath = resolve(rootDir, 'Sources/Orbic/Generated/Fields.swift');
+  const nativeOutPath = resolve(rootDir, 'packages/orb-native/src/generated/shaders.ts');
+  const coreFieldsOutPath = resolve(rootDir, 'packages/orb-core/src/generated/fields.ts');
 
   // Both shapes now have their real compositor: orb.orb (task 5.1) and
   // surface.orb (task 6.4). Every shipped field is built against both.
@@ -279,6 +337,12 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
     writeWebShaderModule(fieldsToArtifacts, webOutPath);
     console.log(`Wrote ${Object.keys(fieldsToArtifacts).length} field(s) to ${webOutPath}`);
+
+    writeCoreFieldNames(fieldsToArtifacts, coreFieldsOutPath);
+    console.log(`Wrote ${Object.keys(fieldsToArtifacts).length} field name(s) to ${coreFieldsOutPath}`);
+
+    writeNativeShaderModule(fieldsToArtifacts, nativeOutPath);
+    console.log(`Wrote ${Object.keys(fieldsToArtifacts).length} field(s) to ${nativeOutPath}`);
 
     writeSwiftFieldNames(fieldsToArtifacts, swiftFieldsOutPath);
     console.log(`Wrote ${Object.keys(fieldsToArtifacts).length} field name(s) to ${swiftFieldsOutPath}`);

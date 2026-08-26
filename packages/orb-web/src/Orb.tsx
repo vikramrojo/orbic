@@ -6,8 +6,8 @@ import { renderFrame } from './gl/renderFrame.js';
 import { usePrefersReducedMotion } from './hooks/usePrefersReducedMotion.js';
 import { useIsDocumentVisible } from './hooks/useIsDocumentVisible.js';
 import { useIsIntersecting } from './hooks/useIsIntersecting.js';
-import { OrbRuntime } from './runtime/OrbRuntime.js';
-import { resolveFieldName, resolveStateName } from './runtime/resolveNames.js';
+import { OrbRuntime } from '@orbic/core';
+import { resolveFieldName, resolveStateName } from '@orbic/core';
 import { registerTicker } from './runtime/sharedTicker.js';
 import { cssGradientForWarmth } from './ssrGradient.js';
 

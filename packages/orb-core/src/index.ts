@@ -16,3 +16,11 @@ export {
   presetChannels,
 } from './states.js';
 export type { Channel, PresetName, ChannelValues } from './states.js';
+
+export { OrbRuntime } from './OrbRuntime.js';
+export type { OrbUniforms } from './OrbRuntime.js';
+
+export { FIELD_NAMES, resolveFieldName, resolveStateName } from './resolveNames.js';
+export type { FieldName, NameContext, Warn } from './resolveNames.js';
+
+export { fallbackColorFromChannels } from './fallbackColor.js';

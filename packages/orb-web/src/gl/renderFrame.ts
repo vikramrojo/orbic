@@ -1,8 +1,8 @@
 import { FIELD_SHADERS } from '../generated/shaders.js';
 import type { FieldName } from '../generated/shaders.js';
 import { drawingBufferSize } from '../runtime/dpr.js';
-import { fallbackColorFromChannels } from '../runtime/fallbackColor.js';
-import type { OrbUniforms } from '../runtime/OrbRuntime.js';
+import { fallbackColorFromChannels } from '@orbic/core';
+import type { OrbUniforms } from '@orbic/core';
 import { sharedGLContext } from './sharedContext.js';
 
 /** Matches the surface epilogues' previous hardcoded SURFACE_SCALE, so omitting `scale` is behaviourally unchanged. */

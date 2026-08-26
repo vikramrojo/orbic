@@ -1,14 +1,25 @@
-import { PRESET_NAMES } from '@orbic/core';
-import type { PresetName } from '@orbic/core';
-import { FIELD_SHADERS } from '../generated/shaders.js';
-import type { FieldName } from '../generated/shaders.js';
+import { PRESET_NAMES } from './states.js';
+import type { PresetName } from './states.js';
+import { FIELD_NAMES } from './generated/fields.js';
+import type { FieldName } from './generated/fields.js';
 
-export const FIELD_NAMES = Object.keys(FIELD_SHADERS) as FieldName[];
+export { FIELD_NAMES };
+export type { FieldName };
 
 const FALLBACK_STATE: PresetName = 'subtle';
-const FALLBACK_FIELD: FieldName = FIELD_NAMES[0]!;
+const FALLBACK_FIELD: FieldName = FIELD_NAMES[0];
 
 export type Warn = (message: string) => void;
+
+/**
+ * Default warning sink. `@orbic/core` is platform-agnostic and its tsconfig
+ * deliberately excludes the DOM lib, so `console` is reached through
+ * `globalThis` and treated as optional rather than assumed — a host without
+ * one (a worklet, a bare JS runtime) must not throw on a name typo.
+ */
+const defaultWarn: Warn = (message) => {
+  (globalThis as { console?: { warn?: (m: string) => void } }).console?.warn?.(message);
+};
 
 export interface NameContext {
   /** e.g. "<Orb>" or "<Surface>" */
@@ -28,7 +39,7 @@ const ORB_FIELD_CONTEXT: NameContext = { component: '<Orb>', prop: 'field' };
  * specs both require this exact fallback behaviour); `context` only
  * changes the wording of the warning.
  */
-export function resolveStateName(name: string, warn: Warn = console.warn, context: NameContext = ORB_STATE_CONTEXT): PresetName {
+export function resolveStateName(name: string, warn: Warn = defaultWarn, context: NameContext = ORB_STATE_CONTEXT): PresetName {
   if ((PRESET_NAMES as readonly string[]).includes(name)) {
     return name as PresetName;
   }
@@ -43,7 +54,7 @@ export function resolveStateName(name: string, warn: Warn = console.warn, contex
  * first shipped field with a warning naming the invalid value and the
  * valid options. Shared by `<Orb>` and `<Surface>`.
  */
-export function resolveFieldName(name: string, warn: Warn = console.warn, context: NameContext = ORB_FIELD_CONTEXT): FieldName {
+export function resolveFieldName(name: string, warn: Warn = defaultWarn, context: NameContext = ORB_FIELD_CONTEXT): FieldName {
   if ((FIELD_NAMES as readonly string[]).includes(name)) {
     return name as FieldName;
   }

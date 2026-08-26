@@ -1,5 +1,7 @@
-import { CHANNELS, createSpringState, integrateSpring, presetChannels, resolveSpring } from '@orbic/core';
-import type { AccumulatingSpringState, Channel, ChannelValues, PresetName, SpringParams } from '@orbic/core';
+import { CHANNELS, presetChannels, resolveSpring } from './states.js';
+import { createSpringState, integrateSpring } from './spring.js';
+import type { Channel, ChannelValues, PresetName } from './states.js';
+import type { AccumulatingSpringState, SpringParams } from './spring.js';
 
 /** `t` wraps at 3600 s to keep phase precision from decaying under mobile half/mediump float (docs/shader-abi.md). */
 const TIME_WRAP_SECONDS = 3600;
@@ -14,8 +16,11 @@ export interface OrbUniforms {
 
 /**
  * Per-instance spring + clock state machine, independent of React, the DOM,
- * or WebGL — the same shared `@orbic/core` integrator drives it that drives
- * the golden-frame fixture, so nothing here reimplements the spring.
+ * WebGL and Skia — it lives in `@orbic/core` precisely so the web and native
+ * bundles share ONE implementation rather than each keeping its own copy of
+ * the spring-and-clock logic to drift apart. The same shared integrator
+ * drives it that drives the golden-frame fixture, so nothing here
+ * reimplements the spring.
  *
  * Callers own the activity decision (paused / offscreen / hidden / reduced
  * motion): call `tick()` only while active, and call `deactivate()` /

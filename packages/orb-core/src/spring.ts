@@ -1,3 +1,11 @@
+// The `'worklet'` directives in this file let `@orbic/native` run this exact
+// integrator on Reanimated's UI thread. Reanimated worklets cannot call plain
+// imported functions, so without them the native bundle would have to keep
+// its own copy of the spring maths — and the golden-frame fixture exists
+// precisely to stop the platforms drifting like that. The directive is a bare
+// string-literal statement, so it is inert everywhere else: Node, the browser
+// and Vitest all just evaluate and discard it.
+
 export interface SpringParams {
   readonly stiffness: number;
   readonly damping: number;
@@ -31,10 +39,12 @@ export const MAX_FRAME_DELTA = 0.25;
 const EPSILON = 1e-9;
 
 export function createSpringState(value: number, velocity = 0): AccumulatingSpringState {
+  'worklet';
   return { value, velocity, accumulator: 0 };
 }
 
 function substep(state: SpringState, target: number, params: SpringParams, dt: number): SpringState {
+  'worklet';
   const acceleration =
     (-params.stiffness * (state.value - target) - params.damping * state.velocity) / params.mass;
   const velocity = state.velocity + acceleration * dt;
@@ -54,6 +64,7 @@ export function integrateSpring(
   params: SpringParams,
   frameDeltaSeconds: number
 ): AccumulatingSpringState {
+  'worklet';
   let { value, velocity, accumulator } = state;
   // A non-finite delta (NaN from a failed timestamp subtraction, Infinity from
   // a bad clock) would poison the accumulator permanently: NaN survives both

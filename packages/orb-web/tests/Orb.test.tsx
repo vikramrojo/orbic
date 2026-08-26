@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PRESET_NAMES } from '@orbic/core';
 import { Orb } from '../src/Orb';
-import { FIELD_NAMES } from '../src/runtime/resolveNames';
+import { FIELD_NAMES } from '@orbic/core';
 
 class FakeIntersectionObserver {
   constructor(_callback: unknown) {}

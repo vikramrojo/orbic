@@ -1,6 +1,8 @@
 {
-  // orb-native is added to references once it has source files;
-  // a composite project reference with zero inputs fails `tsc -b`.
   "files": [],
-  "references": [{ "path": "packages/orb-core" }, { "path": "packages/orb-web" }]
+  "references": [
+    { "path": "packages/orb-core" },
+    { "path": "packages/orb-native" },
+    { "path": "packages/orb-web" }
+  ]
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { PRESET_NAMES } from '@orbic/core';
-import { FIELD_NAMES, resolveFieldName, resolveStateName } from '../../src/runtime/resolveNames';
+import { FIELD_NAMES, resolveFieldName, resolveStateName } from '../src/resolveNames';
 
 describe('resolveStateName', () => {
   it('passes through a valid preset name unchanged, without warning', () => {

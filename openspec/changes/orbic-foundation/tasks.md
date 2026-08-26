@@ -89,14 +89,14 @@ Native and Swift work (groups 8-9) deliberately waits. Tuning discovered here ch
 
 ## 8. React Native bundle
 
-- [ ] 8.1 Implement `<Orb>` using Skia `Shader`/`Fill` with `RuntimeEffect`
-- [ ] 8.2 Drive uniforms on the UI thread via Reanimated `useDerivedValue`, using the shared integrator rather than `withSpring`
-- [ ] 8.3 Declare `react-native-reanimated` optional via `peerDependenciesMeta` (currently a REQUIRED peer, so the optional story is false in the manifest) and implement the JS-thread rAF fallback for `<Orb>`
-- [ ] 8.4 Verify `<Surface>` renders with Skia alone in a project without Reanimated installed
-- [ ] 8.5 Document the JS-thread fallback as a degradation, not a supported equivalent
-- [ ] 8.6 Implement `<Surface>` as always-static
-- [ ] 8.7 Implement reduced-motion, offscreen and backgrounded pausing, and DPR capping for `<Orb>`
-- [ ] 8.8 Assert the golden-frame fixture against the native integrator
+- [x] 8.1 Implement `<Orb>` using Skia `Shader`/`Fill` with `RuntimeEffect` — `packages/orb-native/src/Orb.tsx`; effects compiled once per field/shape and cached, `null` on driver rejection so it degrades to the flat colour
+- [x] 8.2 Drive uniforms on the UI thread, using the shared integrator rather than `withSpring` — via `useFrameCallback` rather than `useDerivedValue` as the task worded it: the springs must be ADVANCED each frame, which is a frame callback's job; `useDerivedValue` derives from existing shared values and has no frame signal. A worklet cannot call methods on the `OrbRuntime` class, so state lives in shared values and calls `integrateSpring`, which `@orbic/core` now marks `'worklet'` (inert off-RN) so the integrator is shared rather than reimplemented
+- [x] 8.3 Declare `react-native-reanimated` optional and implement the JS-thread rAF fallback — the manifest was already correct; the fallback is `useJsThreadUniforms`, selected once at module load (React forbids conditional hooks). Reanimated is resolved through a guarded `require`, never a static import, because Metro resolves imports at build time and a static one would make a Surface-only consumer unbundleable
+- [x] 8.4 Verify `<Surface>` renders with Skia alone in a project without Reanimated — asserted structurally against the import graph, which is the layer that actually decides it: a render test with Reanimated mocked would pass even if a static import made the package unbundleable for that consumer. NOT yet confirmed on a device
+- [x] 8.5 Document the JS-thread fallback as a degradation — `packages/orb-native/README.md`, naming mid-flight retarget as the case where it degrades worst
+- [x] 8.6 Implement `<Surface>` as always-static — no animation import exists in the file at all, so it is structural rather than a default; clock pinned at 0, `pointerEvents="none"`. Tests assert all three
+- [ ] 8.7 PARTIAL — reduced-motion (`AccessibilityInfo.isReduceMotionEnabled` + `reduceMotionChanged`) and backgrounded pausing (`AppState`) are implemented and feed one `active` flag. Still missing: OFFSCREEN pausing, since React Native has no `IntersectionObserver` equivalent and this needs a viewability approach, so an Orb scrolled out of view keeps animating where the web one pauses; and DPR capping, where Skia owns the backing surface scale and whether an explicit cap is needed has not been measured
+- [x] 8.8 Assert the golden-frame fixture against the native integrator — `tests/goldenFrames.test.ts` drives `stepUniforms` (the exact function the UI-thread worklet runs) across all 20 transitions, checking positions AND velocities, plus the clamp/negative-delta/speed/wrap behaviours
 
 ## 9. Swift bundle
 
