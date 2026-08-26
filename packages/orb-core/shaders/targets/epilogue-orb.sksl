@@ -10,10 +10,26 @@
 // task 6.5). This epilogue implements the same formula as the other two
 // targets and assumes matching fragCoord semantics until that test proves
 // otherwise. `u_time` is assumed already wrapped (at 3600 s) by the caller.
+//
+// u_edge is orb-specific, exposed as the Orb component's public `edge` prop —
+// see the equivalent note in epilogue-orb.glsl for why it is applied here
+// rather than inside the compositor. Default 0, which is an exact
+// pass-through of the compositor's own soft falloff.
+
+uniform float u_edge;
 
 const float ORB_SCALE = 1.0;
 
+const float ORB_EDGE_LO = 0.35;
+const float ORB_EDGE_HI = 0.62;
+
 half4 main(float2 fragCoord) {
     vec2 p = (fragCoord - 0.5 * u_resolution) / min(u_resolution.x, u_resolution.y) * ORB_SCALE;
-    return half4(composite(p, u_time, u_energy, u_coherence, u_warmth, u_pulse));
+    vec4 composited = composite(p, u_time, u_energy, u_coherence, u_warmth, u_pulse);
+
+    vec3 straight = composited.rgb / max(composited.a, 1e-5);
+    float firmed = smoothstep(ORB_EDGE_LO, ORB_EDGE_HI, composited.a);
+    float alpha = mix(composited.a, firmed, u_edge);
+
+    return half4(vec4(straight * alpha, alpha));
 }

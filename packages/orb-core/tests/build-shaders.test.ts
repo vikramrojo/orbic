@@ -179,3 +179,62 @@ describe('applyMetalProgramScopeConstants', () => {
     }
   });
 });
+
+describe('orb.orb — soft falloff, no rim', () => {
+  it('has no rim term at all', () => {
+    // The rim was removed rather than turned down, so that a future tweak
+    // cannot quietly reintroduce a lit-sphere highlight.
+    expect(orbCompositorSource).not.toMatch(/ORB_RIM/);
+    expect(orbCompositorSource).not.toMatch(/litColor/);
+  });
+
+  it('fades to zero at or before the viewport half-extent', () => {
+    // World space is normalised by min(resolution), so 0.5 is exactly the
+    // viewport edge along each axis while the corners reach ~0.707. A
+    // falloff still carrying alpha at 0.5 would be cut flat against the
+    // sides and continue into the corners — a square halo, not a round one.
+    const match = orbCompositorSource.match(/ORB_FADE_RADIUS\s*=\s*([0-9.]+)/);
+    expect(match).not.toBeNull();
+    expect(Number(match![1])).toBeLessThanOrEqual(0.5);
+  });
+
+  it('starts fading before it ends, so the edge is soft rather than cut', () => {
+    const core = Number(orbCompositorSource.match(/ORB_CORE_RADIUS\s*=\s*([0-9.]+)/)![1]);
+    const fade = Number(orbCompositorSource.match(/ORB_FADE_RADIUS\s*=\s*([0-9.]+)/)![1]);
+    expect(core).toBeLessThan(fade);
+    // A band this wide is what distinguishes the new look from the old
+    // 0.04-wide cut at radius 0.5.
+    expect(fade - core).toBeGreaterThan(0.1);
+  });
+});
+
+describe('epilogue-orb — the `edge` uniform', () => {
+  const epilogue = (target: string) =>
+    readFileSync(resolve(shadersDir, `targets/epilogue-orb.${target}`), 'utf8');
+
+  it('declares the uniform on the GLSL and SkSL targets', () => {
+    expect(epilogue('glsl')).toMatch(/uniform float u_edge;/);
+    expect(epilogue('sksl')).toMatch(/uniform float u_edge;/);
+  });
+
+  it('carries edge as a trailing Metal argument, since MSL has no uniform globals', () => {
+    const metal = epilogue('metal');
+    // Trailing matters: Swift passes these positionally.
+    expect(metal).toMatch(/float pulse,\s*\n\s*float edge\s*\n\s*\)/);
+  });
+
+  it('is an exact pass-through at edge = 0 on every target', () => {
+    // mix(a, firmed, 0) === a. Mixing the RESULT rather than the smoothstep
+    // bounds is what makes that exact — smoothstep(0, 1, a) would already be
+    // an S-curve, silently reshaping every orb that never set the prop.
+    for (const target of ['glsl', 'sksl', 'metal']) {
+      expect(epilogue(target)).toMatch(/mix\(composited\.a,\s*firmed,\s*(u_)?edge\)/);
+    }
+  });
+
+  it('un-premultiplies before changing alpha, with a divide-by-zero guard', () => {
+    for (const target of ['glsl', 'sksl', 'metal']) {
+      expect(epilogue(target)).toMatch(/composited\.rgb\s*\/\s*max\(composited\.a,/);
+    }
+  });
+});

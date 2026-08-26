@@ -8,8 +8,9 @@ type Listener = () => void;
  * four-channel ABI (docs/shader-abi.md) plus u_resolution/u_time, and
  * u_scale (surface-only, surface-component spec's `scale` prop). Resolved
  * once per program, not looked up every frame. `gl.getUniformLocation`
- * returns null for a name a given program doesn't declare (e.g. u_scale on
- * an orb program) — safe to resolve unconditionally for every program;
+ * returns null for a name a given program doesn't declare (u_scale on an orb
+ * program, u_edge on a surface one) — safe to resolve unconditionally for
+ * every program;
  * `gl.uniform1f(null, ...)` on an unused location is a documented no-op.
  */
 export const UNIFORM_NAMES = [
@@ -20,6 +21,7 @@ export const UNIFORM_NAMES = [
   'u_warmth',
   'u_pulse',
   'u_scale',
+  'u_edge',
 ] as const;
 export type UniformName = (typeof UNIFORM_NAMES)[number];
 

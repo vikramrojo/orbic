@@ -1,11 +1,15 @@
 import SwiftUI
 
-/// An animated Orb: a field composited into a masked sphere, driven by the
-/// shared spring integrator.
+/// An animated Orb: a field composited through a soft radial falloff, driven
+/// by the shared spring integrator.
 ///
-/// The public surface (`field`, `state`, `size`, `speed`, `paused`) matches
-/// `<Orb>` on web and native, with the same defaults — the orb-component
-/// spec requires no platform-only prop and no differing default.
+/// The public surface (`field`, `state`, `size`, `speed`, `paused`, `edge`)
+/// matches `<Orb>` on web and native, with the same defaults — the
+/// orb-component spec requires no platform-only prop and no differing default.
+///
+/// `edge` firms the silhouette: 0 leaves the compositor's soft falloff
+/// untouched, 1 is as defined as it gets. It does not restore the old masked
+/// sphere with its rim highlight, which has been retired.
 @available(iOS 17.0, macOS 14.0, *)
 public struct Orb: View {
     private let field: String
@@ -13,19 +17,22 @@ public struct Orb: View {
     private let size: CGFloat
     private let speed: Double
     private let paused: Bool
+    private let edge: Double
 
     public init(
         field: String,
         state: String = OrbicPreset.subtle.rawValue,
         size: CGFloat = 160,
         speed: Double = 1,
-        paused: Bool = false
+        paused: Bool = false,
+        edge: Double = 0
     ) {
         self.field = field
         self.state = state
         self.size = size
         self.speed = speed
         self.paused = paused
+        self.edge = edge
     }
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -58,7 +65,8 @@ public struct Orb: View {
                         libraryURL: libraryURL,
                         channels: driver?.channels ?? restingChannels,
                         time: driver?.time ?? 0,
-                        size: size
+                        size: size,
+                        edge: edge
                     )
                 } else {
                     TimelineView(.animation) { timeline in
@@ -69,15 +77,31 @@ public struct Orb: View {
                             libraryURL: libraryURL,
                             channels: channels,
                             time: driver.time,
-                            size: size
+                            size: size,
+                            edge: edge
                         )
                     }
                 }
             } else {
                 // Shader unavailable: a solid colour from warmth/energy,
                 // rather than a crash or an empty region.
+                // A soft radial fade, not `.clipShape(Circle())`: the orb
+                // compositor no longer draws a hard silhouette, so a crisply
+                // clipped fallback would look nothing like the thing it is
+                // standing in for.
                 Color.orbicFallback(warmth: restingChannels.warmth, energy: restingChannels.energy)
-                    .clipShape(Circle())
+                    .mask(
+                        RadialGradient(
+                            gradient: Gradient(stops: [
+                                .init(color: .black, location: 0),
+                                .init(color: .black, location: 0.36),
+                                .init(color: .clear, location: 1.0),
+                            ]),
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: size / 2
+                        )
+                    )
             }
         }
         // A concrete frame, not a scaleEffect: a `size` change must
@@ -119,6 +143,7 @@ private struct OrbShaderLayer: View {
     let channels: OrbicChannels
     let time: Double
     let size: CGFloat
+    let edge: Double
 
     var body: some View {
         // Argument order is the frozen uniform ABI (docs/shader-abi.md).
@@ -130,7 +155,10 @@ private struct OrbShaderLayer: View {
             .float(Float(channels.energy)),
             .float(Float(channels.coherence)),
             .float(Float(channels.warmth)),
-            .float(Float(channels.pulse))
+            .float(Float(channels.pulse)),
+            // Trailing, orb-only — the Orb component's `edge` prop. Not part
+            // of the frozen four-channel ABI; see epilogue-orb.metal.
+            .float(Float(edge))
         )
 
         Rectangle()

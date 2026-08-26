@@ -14,6 +14,12 @@ export interface OrbProps {
   size?: number;
   speed?: number;
   paused?: boolean;
+  /**
+   * Silhouette firmness, 0..1. The orb compositor renders a soft radial
+   * falloff with no hard edge; raising this firms it into a more defined
+   * border. It does not restore the old masked sphere with its rim highlight.
+   */
+  edge?: number;
 }
 
 /**
@@ -23,7 +29,7 @@ export interface OrbProps {
  * and Swift, with the same defaults — the orb-component spec requires no
  * platform-only prop and no differing default.
  */
-export function Orb({ field, state = 'subtle', size = 160, speed = 1, paused = false }: OrbProps) {
+export function Orb({ field, state = 'subtle', size = 160, speed = 1, paused = false, edge = 0 }: OrbProps) {
   const resolvedField = resolveFieldName(field, undefined, { component: '<Orb>', prop: 'field' });
   const resolvedState = resolveStateName(state, undefined, { component: '<Orb>', prop: 'state' });
 
@@ -47,7 +53,15 @@ export function Orb({ field, state = 'subtle', size = 160, speed = 1, paused = f
         style={{
           width: size,
           height: size,
+          // The orb compositor draws a soft falloff with no silhouette, so a
+          // full-strength hard circle would misrepresent it. React Native has
+          // no radial-gradient primitive without pulling in a dependency, and
+          // this bundle's whole point is a minimal dependency floor — so the
+          // circle stays but is dropped to partial opacity, which is closer to
+          // the real thing than a crisp disc. An honest approximation, not a
+          // match.
           borderRadius: size / 2,
+          opacity: 0.55,
           backgroundColor: fallbackColorFromChannels(uniforms),
         }}
       />
@@ -69,6 +83,9 @@ export function Orb({ field, state = 'subtle', size = 160, speed = 1, paused = f
             u_coherence: uniforms.coherence,
             u_warmth: uniforms.warmth,
             u_pulse: uniforms.pulse,
+            // Trailing, orb-only — see epilogue-orb.sksl. Skia takes named
+            // uniforms, so there is nothing positional to keep in sync.
+            u_edge: edge,
           }}
         />
       </Fill>

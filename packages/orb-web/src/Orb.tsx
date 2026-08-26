@@ -9,7 +9,7 @@ import { useIsIntersecting } from './hooks/useIsIntersecting.js';
 import { OrbRuntime } from '@orbic/core';
 import { resolveFieldName, resolveStateName } from '@orbic/core';
 import { registerTicker } from './runtime/sharedTicker.js';
-import { cssGradientForWarmth } from './ssrGradient.js';
+import { cssOrbGradientForWarmth } from './ssrGradient.js';
 
 const DEFAULT_FIELD = Object.keys(FIELD_SHADERS)[0]!;
 const DEFAULT_STATE = 'subtle';
@@ -24,6 +24,13 @@ export interface OrbProps {
   /** Scales the animation clock only; channel values and spring behaviour are unaffected. */
   speed?: number;
   paused?: boolean;
+  /**
+   * Silhouette firmness, 0..1. The orb compositor renders a soft radial
+   * falloff with no hard edge; raising this firms that falloff into a more
+   * defined border. It never restores the old masked sphere with its rim
+   * highlight — that look is retired.
+   */
+  edge?: number;
   className?: string;
   style?: CSSProperties;
 }
@@ -34,6 +41,7 @@ export function Orb({
   size = DEFAULT_SIZE,
   speed = 1,
   paused = false,
+  edge = 0,
   className,
   style,
 }: OrbProps) {
@@ -74,6 +82,8 @@ export function Orb({
   sizeRef.current = size;
   const fieldRef = useRef(resolvedField);
   fieldRef.current = resolvedField;
+  const edgeRef = useRef(edge);
+  edgeRef.current = edge;
 
   const active = mounted && !reducedMotion && !paused && intersecting && documentVisible;
 
@@ -93,6 +103,7 @@ export function Orb({
         width: sizeRef.current,
         height: sizeRef.current,
         uniforms,
+        edge: edgeRef.current,
       });
     });
     return () => {
@@ -125,15 +136,17 @@ export function Orb({
       width: size,
       height: size,
       uniforms: runtime.uniforms(),
+      edge,
     });
-  }, [active, mounted, runtime, resolvedField, size]);
+  }, [active, mounted, runtime, resolvedField, size, edge]);
 
   if (!mounted) {
     const warmth = presetChannels(resolvedState).warmth;
     return (
       <div
         className={className}
-        style={{ width: size, height: size, borderRadius: '50%', background: cssGradientForWarmth(warmth), ...style }}
+        // No borderRadius: the orb has no silhouette to clip to any more.
+        style={{ width: size, height: size, background: cssOrbGradientForWarmth(warmth), ...style }}
       />
     );
   }

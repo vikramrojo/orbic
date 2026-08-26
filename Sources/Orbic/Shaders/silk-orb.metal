@@ -362,52 +362,69 @@ float3 field(float2 p, float t, float energy, float coherence, float warmth, flo
 }
 
 
-// Real orb compositor (task 5.1): a sphere SDF mask with rim falloff over
-// the field's colour. Glow is faked entirely in-shader as a brightened band
-// near the edge — there is no bloom and no second pass (see design.md
-// decision #10).
+// Orb compositor: a soft radial falloff over the field's colour, with no
+// silhouette edge and no rim shading.
+//
+// This deliberately replaced an earlier sphere-mask-plus-rim compositor. That
+// version cut alpha across a 0.04-wide band at radius 0.5 and brightened a
+// band just inside it, which read as a lit 3D ball with a crisp cut-out edge.
+// The look Orbic wants is flatter and quieter — the orb should sit in its
+// background rather than be stamped onto it — so the mask became a long
+// falloff and the rim term was removed outright rather than turned down.
+// Per-instance firmness is not this file's job: the `edge` prop is applied in
+// the epilogue, which post-processes the alpha returned here (see
+// targets/epilogue-orb.glsl). composite()'s signature is frozen, so a
+// per-instance value could not reach this function anyway.
 //
 // Returns PREMULTIPLIED colour and alpha (`float4(rgb * a, a)`), per the
 // two-function contract in docs/shader-abi.md: `composite()` alone decides
-// visibility, so the orb can be composited over an arbitrary background
-// without dark fringing at the rim. `alpha` reaches exactly 0 outside the
-// sphere mask.
+// visibility, so the orb composites over an arbitrary background without dark
+// fringing.
 //
 // Written once in the portable subset — no texture sampling, no `discard`,
 // no `while`, no dynamic indexing, no preprocessor, no bare `mod`/two-arg
-// `atan`, no `uniform` declarations. `smoothstep` and `length` are portable
-// built-ins available identically on all three targets, so they need no
-// shim.
+// `atan`, no `uniform` declarations. `smoothstep`, `length` and `pow` are
+// portable built-ins available identically on all three targets.
 
-constant float ORB_SPHERE_RADIUS = 0.5;
-constant float ORB_EDGE_SOFTNESS = 0.02;
-constant float ORB_RIM_WIDTH = 0.18;
-constant float ORB_RIM_INTENSITY = 0.6;
+// Radius at which the falloff begins. Inside this the orb is fully opaque.
+constant float ORB_CORE_RADIUS = 0.18;
+
+// Radius at which alpha reaches exactly 0.
+//
+// This MUST NOT exceed 0.5. World space is normalised by
+// min(resolution.x, resolution.y) and the orb is drawn into a square, so 0.5
+// is exactly the viewport half-extent along each axis while the corners reach
+// ~0.707. A falloff still carrying alpha at 0.5 would therefore be cut flat
+// against the left/right/top/bottom edges while continuing into the corners —
+// reading as a faint square halo rather than a round one.
+constant float ORB_FADE_RADIUS = 0.5;
+
+// Shapes the shoulder of the falloff. Above 1 the orb holds its body and then
+// releases quickly; at 1 it is the bare smoothstep, which reads flat-topped.
+constant float ORB_FALLOFF_SHAPE = 1.35;
 
 float4 composite(float2 p, float t, float energy, float coherence, float warmth, float pulse) {
     float3 color = field(p, t, energy, coherence, warmth, pulse);
 
     float dist = length(p);
 
-    // 1 inside the sphere, smoothly falls to 0 across a soft edge band —
-    // this alone is what lets alpha reach exactly 0 outside the mask.
-    float mask = 1.0 - smoothstep(ORB_SPHERE_RADIUS - ORB_EDGE_SOFTNESS, ORB_SPHERE_RADIUS + ORB_EDGE_SOFTNESS, dist);
+    // 1 in the core, easing to exactly 0 at ORB_FADE_RADIUS. `smoothstep`
+    // reaching a true 0 (rather than an exponential tail that only
+    // approaches it) is what keeps the "transparent outside the orb"
+    // guarantee real.
+    float falloff = 1.0 - smoothstep(ORB_CORE_RADIUS, ORB_FADE_RADIUS, dist);
 
-    // Brightens a band just inside the edge, clamped to the same mask so
-    // the rim never bleeds past it — a cheap in-shader stand-in for glow.
-    float rim = smoothstep(ORB_SPHERE_RADIUS - ORB_RIM_WIDTH, ORB_SPHERE_RADIUS, dist) * mask;
-    float3 litColor = color + rim * ORB_RIM_INTENSITY;
+    float alpha = pow(max(falloff, 0.0), ORB_FALLOFF_SHAPE);
 
-    float alpha = mask;
-    return float4(litColor * alpha, alpha);
+    return float4(color * alpha, alpha);
 }
 
 
 // Orbic epilogue — orb shape, Metal Shading Language ([[stitchable]]).
 //
 // Maps the fragment position into aspect-preserving world space at orb
-// scale (p spans roughly a unit disc — see docs/shader-abi.md) and calls
-// the compositor. Unlike the GLSL/SkSL epilogues, this one also carries the
+// scale (p spans roughly a unit disc — see docs/shader-abi.md) and calls the
+// compositor. Unlike the GLSL/SkSL epilogues, this one also carries the
 // entire uniform ABI as explicit function arguments, because a
 // [[stitchable]] function has no global uniform storage to read from (see
 // preamble.metal). `time` is assumed already wrapped (at 3600 s) by the
@@ -418,8 +435,18 @@ float4 composite(float2 p, float t, float energy, float coherence, float warmth,
 // not inside the shared core, is deliberate: it keeps the shared field and
 // compositor math in float precision and only narrows at the platform
 // boundary that actually demands `half`.
+//
+// `edge` is orb-specific — not part of the frozen four-channel ABI, which
+// field()/composite() alone see. It is the Orb component's public `edge`
+// prop, applied here rather than in the compositor because composite()'s
+// signature is frozen; see epilogue-orb.glsl for the full reasoning. Being a
+// trailing argument, it is the 9th and last parameter, mirroring how `scale`
+// trails on orbicSurface.
 
 constant float ORB_SCALE = 1.0;
+
+constant float ORB_EDGE_LO = 0.35;
+constant float ORB_EDGE_HI = 0.62;
 
 [[ stitchable ]] half4 orbicOrb(
     float2 position,
@@ -429,8 +456,18 @@ constant float ORB_SCALE = 1.0;
     float energy,
     float coherence,
     float warmth,
-    float pulse
+    float pulse,
+    float edge
 ) {
     float2 p = (position - 0.5 * resolution) / min(resolution.x, resolution.y) * ORB_SCALE;
-    return half4(composite(p, time, energy, coherence, warmth, pulse));
+    float4 composited = composite(p, time, energy, coherence, warmth, pulse);
+
+    // composite() returns PREMULTIPLIED colour, so recover the straight colour
+    // before changing alpha — otherwise firming the edge would darken it too.
+    float3 straight = composited.rgb / max(composited.a, 1e-5);
+
+    float firmed = smoothstep(ORB_EDGE_LO, ORB_EDGE_HI, composited.a);
+    float alpha = mix(composited.a, firmed, edge);
+
+    return half4(float4(straight * alpha, alpha));
 }

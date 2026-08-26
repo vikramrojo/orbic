@@ -22,14 +22,23 @@ const require = createRequire(import.meta.url);
 
 // Base ABI uniform list, per preamble.sksl: u_resolution(2) + u_time +
 // u_energy + u_coherence + u_warmth + u_pulse. The SURFACE epilogue adds
-// one more (`u_scale`, its public `scale` prop) that the ORB epilogue does
-// not -- discovered empirically via renderSksl's own defensive check below
-// (getUniformFloatCount() came back 8 where 7 was expected) rather than by
-// assumption, which is exactly what that check is for. makeUniforms()
-// appends `scale` as an 8th float only when a caller passes one; orb
-// renders must not pass it.
+// one more (`u_scale`, its public `scale` prop) -- discovered empirically via
+// renderSksl's own defensive check below (getUniformFloatCount() came back 8
+// where 7 was expected) rather than by assumption, which is exactly what that
+// check is for.
+//
+// The ORB epilogue now carries a trailing uniform of its own, `u_edge` (the
+// Orb component's public `edge` prop), so BOTH shapes are 8 floats -- but
+// they are NOT interchangeable: the 8th float means `scale` on a surface and
+// `edge` on an orb. Matching lengths is precisely the case renderSksl's
+// length check cannot catch, so callers must pass the right one for the
+// shape. makeUniforms() appends whichever it is given, and rejects being
+// given both.
 export const BASE_UNIFORM_FLOAT_COUNT = 7;
 export const SURFACE_UNIFORM_FLOAT_COUNT = 8;
+export const ORB_UNIFORM_FLOAT_COUNT = 8;
+/** Matches epilogue-orb.sksl's default: 0 is an exact pass-through of the compositor's soft falloff. */
+export const ORB_DEFAULT_EDGE = 0.0;
 export const SURFACE_DEFAULT_SCALE = 3.0; // matches epilogue-surface.sksl's own stated default
 
 let canvasKitPromise = null;
@@ -49,15 +58,25 @@ export function getCanvasKit() {
 /**
  * Builds the uniform Float32Array in the exact order `preamble.sksl`
  * declares: u_resolution.xy, u_time, u_energy, u_coherence, u_warmth,
- * u_pulse -- followed by `scale` as an 8th float IF a `scale` is passed,
- * matching `epilogue-surface.sksl`'s additional `u_scale` uniform. Omit
- * `scale` for an orb render; the orb epilogue has no such uniform and
- * `renderSksl` will reject a length mismatch rather than silently
- * misaligning the array.
+ * u_pulse -- followed by ONE shape-specific trailing float: `scale` for a
+ * surface (`epilogue-surface.sksl`'s u_scale) or `edge` for an orb
+ * (`epilogue-orb.sksl`'s u_edge).
+ *
+ * Passing both throws. Both shapes are 8 floats, so a swapped trailing value
+ * would sail past `renderSksl`'s length check and silently render the wrong
+ * thing -- an orb drawn with scale 3.0 in the edge slot would look firm-edged
+ * for no visible reason. The length check cannot catch that; this can.
  */
-export function makeUniforms({ width, height, time = 0, energy = 0.5, coherence = 0.5, warmth = 0.5, pulse = 0, scale }) {
+export function makeUniforms({ width, height, time = 0, energy = 0.5, coherence = 0.5, warmth = 0.5, pulse = 0, scale, edge }) {
+  if (scale !== undefined && edge !== undefined) {
+    throw new Error(
+      'makeUniforms: pass `scale` (surface) or `edge` (orb), not both — they occupy the same trailing slot'
+    );
+  }
+
   const values = [width, height, time, energy, coherence, warmth, pulse];
   if (scale !== undefined) values.push(scale);
+  if (edge !== undefined) values.push(edge);
   return new Float32Array(values);
 }
 

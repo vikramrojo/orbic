@@ -6,7 +6,7 @@
 // convention.
 
 import { listFields, getSksl } from './lib/build-artifact.mjs';
-import { renderSksl, makeUniforms, meanAbsDiff, SURFACE_DEFAULT_SCALE } from './lib/canvaskit.mjs';
+import { renderSksl, makeUniforms, meanAbsDiff, ORB_DEFAULT_EDGE, SURFACE_DEFAULT_SCALE } from './lib/canvaskit.mjs';
 
 const WIDTH = 200;
 const HEIGHT = 200;
@@ -29,7 +29,10 @@ export async function checkBrandUnity(fieldA, fieldB) {
   // array for both would either be rejected outright (wrong length) or, at
   // matching lengths by coincidence, silently misalign a uniform, which is
   // the exact failure mode renderSksl's own defensive check exists to catch.
-  const orbUniforms = makeUniforms({ width: WIDTH, height: HEIGHT, time: 0, energy: 0.6, coherence: 0.5, warmth: 0.5, pulse: 0 });
+  const orbUniforms = makeUniforms({
+    width: WIDTH, height: HEIGHT, time: 0, energy: 0.6, coherence: 0.5, warmth: 0.5, pulse: 0,
+    edge: ORB_DEFAULT_EDGE,
+  });
   const surfaceUniforms = makeUniforms({
     width: WIDTH, height: HEIGHT, time: 0, energy: 0.6, coherence: 0.5, warmth: 0.5, pulse: 0,
     scale: SURFACE_DEFAULT_SCALE,

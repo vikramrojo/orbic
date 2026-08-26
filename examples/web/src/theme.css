@@ -12,6 +12,11 @@
  * components. It never sets --bg/--fg/--border-* on anything carrying
  * data-tone/data-variant, so those axes keep working — an unlayered (or
  * later-layered) slot assignment would silently outrank `largen.modifiers`.
+ *
+ * `--surface-2` is a page token, not one of largen's fourteen slots — it is
+ * the second, lighter step in the near-black ladder the reference layout
+ * uses (page → card → pill), set here alongside the rest of this theme's
+ * literal colour overrides rather than invented mid-component.
  */
 
 @import 'largen/dist';
@@ -21,9 +26,10 @@
 
 @layer app-theme {
   [data-theme='dark'] {
-    --canvas: #0a0b0d;
-    --surface: #131418;
-    --line: #1e2024;
+    --canvas: #0a0a0a;
+    --surface: #141416;
+    --surface-2: #1c1c1f;
+    --line: #232326;
     --ink-muted: #82838c;
     --primary: #7b7fff;
     --primary-on: #0a0b14;
@@ -35,16 +41,87 @@
 @layer app {
   .orbic-page {
     min-height: 100vh;
-    --pad: var(--space-6) var(--space-8) var(--space-16);
+    --bg: var(--canvas);
+    --pad: var(--space-8) var(--space-6) var(--space-16);
   }
 
+  .orbic-shell {
+    max-inline-size: 43.125rem; /* ~690px, matching the reference column */
+    margin-inline: auto;
+  }
+
+  /* --- Top bar ------------------------------------------------------- */
+
+  .orbic-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-block-end: var(--space-12);
+  }
+
+  .orbic-navlink {
+    --bg: var(--surface-2);
+    --fg: var(--ink-muted);
+    --border-width: 0;
+    --radius: 2em;
+    --pad: 0.4em 0.9em 0.4em 0.6em;
+    --font-size: 0.78rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35em;
+    text-decoration: none;
+  }
+
+  .orbic-navlink svg {
+    inline-size: 0.85em;
+    block-size: 0.85em;
+  }
+
+  .orbic-icon-cluster {
+    display: flex;
+    --gap: var(--space-2);
+  }
+
+  .orbic-icon-btn {
+    --bg: var(--surface-2);
+    --border-width: 0;
+    --radius: 50%;
+    --pad: 0;
+    display: inline-grid;
+    place-items: center;
+    inline-size: 2rem;
+    block-size: 2rem;
+    text-decoration: none;
+  }
+
+  .orbic-icon-btn svg {
+    inline-size: 0.9rem;
+    block-size: 0.9rem;
+  }
+
+  /* --- Header ---------------------------------------------------------- */
+
   .orbic-header {
-    margin-block-end: var(--space-8);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    margin-block-end: var(--space-12);
+  }
+
+  .orbic-tile {
+    --bg: var(--surface-2);
+    --radius: var(--radius-lg);
+    display: grid;
+    place-items: center;
+    inline-size: 2.75rem;
+    block-size: 2.75rem;
+    margin-block-end: var(--space-3);
   }
 
   .orbic-title {
-    --font-size: 1.05rem;
-    --weight: var(--weight-bold);
+    --font-size: 1.2rem;
+    --weight: var(--weight-medium);
     --fg: var(--ink);
     margin: 0 0 var(--space-1);
   }
@@ -53,6 +130,7 @@
     --font-size: 0.8rem;
     --fg: var(--ink-muted);
     margin: 0;
+    max-inline-size: 38ch;
   }
 
   .orbic-subhead code,
@@ -60,8 +138,23 @@
     font-family: var(--font-mono);
   }
 
+  /* --- Sections ---------------------------------------------------------- */
+
   .orbic-section {
     margin-block-end: var(--space-12);
+  }
+
+  .orbic-section-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-block-end: var(--space-1);
+  }
+
+  .orbic-section-row .orbic-heading {
+    margin: 0;
   }
 
   .orbic-heading {
@@ -83,30 +176,57 @@
     --gap: var(--space-2);
   }
 
-  .orbic-orb-row {
+  /* --- Gallery ------------------------------------------------------- */
+
+  .orbic-gallery {
+    column-count: 2;
+    column-gap: var(--space-4);
+  }
+
+  .orbic-gallery-card {
+    --bg: var(--surface);
+    --radius: var(--radius-lg);
+    --pad: var(--space-4);
     display: flex;
+    align-items: center;
     justify-content: center;
-    padding-block: var(--space-6);
+    break-inside: avoid;
+    margin-block-end: var(--space-4);
+  }
+
+  .orbic-pill {
+    --bg: var(--surface-2);
+    --radius: 2em;
+    --pad: 0.4em 1em 0.4em 0.4em;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6em;
+    max-inline-size: 100%;
+  }
+
+  .orbic-pill-label {
+    --fg: var(--ink-muted);
+    --font-size: 0.85rem;
+    white-space: nowrap;
+  }
+
+  /* --- Diagnostic cards (unity, legibility, aspect-ratio pair) ------------
+   *
+   * Frame around a canvas-rendered <Surface>/<Orb>. Sets background/radius
+   * chrome only — never --bg on the canvas itself, so largen's universal
+   * paint rule never paints over the rendered field. No border, matching the
+   * reference's flat, shadow-less cards. */
+  .orbic-card {
+    position: relative;
+    overflow: hidden;
+    --bg: var(--surface);
+    --radius: var(--radius-lg);
   }
 
   .orbic-unity-row {
     display: flex;
     flex-wrap: wrap;
     --gap: var(--space-4);
-  }
-
-  /* Frame around a canvas-rendered <Surface>/<Orb>. Sets border/radius/pad
-   * chrome only — never --bg on the canvas itself, so largen's universal
-   * paint rule never paints over the rendered field. --bg here targets only
-   * this frame div, and largen's slot custom properties don't inherit. */
-  .orbic-card {
-    position: relative;
-    overflow: hidden;
-    --bg: var(--surface);
-    --radius: var(--radius-lg);
-    --border-width: var(--hairline);
-    --border-style: solid;
-    --border-color: var(--line);
   }
 
   .orbic-card-overlay {
@@ -144,5 +264,140 @@
     --font-size: 0.75rem;
     --fg: var(--ink-muted);
     margin: 0 0 var(--space-2);
+  }
+
+  /* --- Installation / usage code blocks --------------------------------- */
+
+  .orbic-tabs {
+    display: inline-flex;
+    --bg: var(--surface-2);
+    --radius: 2em;
+    --pad: 0.2em;
+    gap: 0.15em;
+  }
+
+  .orbic-tabs button {
+    --radius: 2em;
+    --pad: 0.35em 0.85em;
+    --font-size: 0.78rem;
+  }
+
+  .orbic-codeblock {
+    position: relative;
+    --bg: var(--surface-2);
+    --radius: var(--radius-md);
+    --pad: var(--space-4);
+    overflow-x: auto;
+  }
+
+  .orbic-codeblock pre {
+    --fg: var(--ink);
+    margin: 0;
+    padding-inline-end: var(--space-8);
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    line-height: 1.6;
+    white-space: pre;
+  }
+
+  .orbic-copy-btn {
+    position: absolute;
+    inset-block-start: var(--space-2);
+    inset-inline-end: var(--space-2);
+    --bg: var(--surface);
+    --border-width: 0;
+    --radius: var(--radius-sm);
+    --pad: 0.4em;
+    display: inline-grid;
+    place-items: center;
+  }
+
+  .orbic-copy-btn svg {
+    inline-size: 0.85rem;
+    block-size: 0.85rem;
+  }
+
+  /* --- Playground ------------------------------------------------------- */
+
+  .orbic-panel {
+    --bg: var(--surface);
+    --radius: var(--radius-lg);
+    --pad: var(--space-6);
+    --gap: var(--space-6);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .orbic-control-group {
+    --gap: var(--space-2);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .orbic-control-label {
+    --font-size: 0.72rem;
+    --fg: var(--ink-muted);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .orbic-slider-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  .orbic-slider-row input[type='range'] {
+    flex: 1;
+  }
+
+  .orbic-slider-value {
+    --fg: var(--ink-muted);
+    --font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
+    min-inline-size: 3.5ch;
+    text-align: right;
+  }
+
+  /* --- Preview ------------------------------------------------------- */
+
+  .orbic-preview-card {
+    --bg: var(--surface);
+    --radius: var(--radius-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    block-size: 22rem;
+  }
+
+  .orbic-preview-controls {
+    display: flex;
+    justify-content: center;
+    margin-block-start: var(--space-4);
+  }
+
+  .orbic-play-btn {
+    --bg: var(--surface-2);
+    --border-width: 0;
+    --radius: 50%;
+    --pad: 0;
+    display: inline-grid;
+    place-items: center;
+    inline-size: 2.75rem;
+    block-size: 2.75rem;
+  }
+
+  .orbic-play-btn svg {
+    inline-size: 1rem;
+    block-size: 1rem;
+  }
+
+  /* --- Footer ------------------------------------------------------- */
+
+  .orbic-footer {
+    --font-size: 0.78rem;
+    --fg: var(--ink-muted);
+    text-align: center;
+    margin-block-start: var(--space-4);
   }
 }

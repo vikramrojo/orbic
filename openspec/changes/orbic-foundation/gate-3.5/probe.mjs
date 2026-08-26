@@ -40,7 +40,10 @@ async function render(sksl, shape, overrides) {
     coherence: 0.5,
     warmth: 0.5,
     pulse: 1,
-    ...(shape === 'surface' ? { scale: 3.0 } : {}),
+    // Both shapes carry one trailing uniform, and they are different ones:
+    // `scale` on a surface, `edge` on an orb. Same length, so passing the
+    // wrong one renders silently wrong rather than erroring.
+    ...(shape === 'surface' ? { scale: 3.0 } : { edge: 0.0 }),
     ...overrides,
   });
   return renderSksl(sksl, { width: SIZE, height: SIZE, uniforms });

@@ -5,6 +5,9 @@ import { fallbackColorFromChannels } from '@orbic/core';
 import type { OrbUniforms } from '@orbic/core';
 import { sharedGLContext } from './sharedContext.js';
 
+/** Matches epilogue-orb's own default: 0 is an exact pass-through of the compositor's soft falloff. */
+export const DEFAULT_ORB_EDGE = 0;
+
 /** Matches the surface epilogues' previous hardcoded SURFACE_SCALE, so omitting `scale` is behaviourally unchanged. */
 export const DEFAULT_SURFACE_SCALE = 3.0;
 
@@ -18,6 +21,8 @@ export interface RenderFrameOptions {
   uniforms: OrbUniforms;
   /** World-space zoom, surface-only (surface-component spec's `scale` prop). Ignored by the orb shape. */
   scale?: number;
+  /** Silhouette firmness, orb-only (orb-component spec's `edge` prop). 0 leaves the compositor's soft falloff untouched. Ignored by the surface shape. */
+  edge?: number;
 }
 
 /**
@@ -41,6 +46,7 @@ export function renderFrame({
   height,
   uniforms,
   scale = DEFAULT_SURFACE_SCALE,
+  edge = DEFAULT_ORB_EDGE,
 }: RenderFrameOptions): void {
   if (!canvas) return;
 
@@ -79,6 +85,7 @@ export function renderFrame({
   gl.uniform1f(locations.u_warmth, uniforms.warmth);
   gl.uniform1f(locations.u_pulse, uniforms.pulse);
   gl.uniform1f(locations.u_scale, scale); // null location on an orb program: documented no-op
+  gl.uniform1f(locations.u_edge, edge); // null location on a surface program: same no-op
 
   gl.clearColor(0, 0, 0, 0);
   gl.clear(gl.COLOR_BUFFER_BIT);
@@ -136,12 +143,20 @@ function paintFallback(
   ctx.clearRect(0, 0, bufferWidth, bufferHeight);
   ctx.fillStyle = fallbackColorFromChannels(uniforms);
   if (shape === 'orb') {
-    // The orb is a masked circle; the fallback should read as the same
-    // silhouette, not a filled square, over an arbitrary background.
+    // A soft radial fade, matching the compositor's own falloff rather than
+    // the hard `ctx.arc` circle this used to draw. The orb no longer has a
+    // silhouette to imitate — a crisp disc would look like a different
+    // component. The stops mirror ORB_CORE_RADIUS/ORB_FADE_RADIUS in
+    // compositors/orb.orb.
     const radius = Math.min(bufferWidth, bufferHeight) / 2;
-    ctx.beginPath();
-    ctx.arc(bufferWidth / 2, bufferHeight / 2, radius, 0, Math.PI * 2);
-    ctx.fill();
+    const cx = bufferWidth / 2;
+    const cy = bufferHeight / 2;
+    const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+    gradient.addColorStop(0, ctx.fillStyle as string);
+    gradient.addColorStop(0.36, ctx.fillStyle as string);
+    gradient.addColorStop(1, 'transparent');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, bufferWidth, bufferHeight);
   } else {
     // The surface is a full-bleed rectangle.
     ctx.fillRect(0, 0, bufferWidth, bufferHeight);
