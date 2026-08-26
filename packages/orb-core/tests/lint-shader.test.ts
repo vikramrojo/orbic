@@ -100,3 +100,45 @@ describe('lintShaderSource — accepts the portable subset', () => {
     expect(lintShaderSource(source)).toEqual([]);
   });
 });
+
+describe('pulse-applied-twice', () => {
+  // The runtime accumulates the field clock as the integral of pulse * dt, so
+  // a field that multiplies again gets pulse^2. This shipped in all three
+  // fields before the task 3.5 ABI gate caught it; the rule exists so it
+  // cannot come back, including for custom fields built via the CLI.
+  const rules = (source: string) => lintShaderSource(source).map((v) => v.rule);
+
+  it('flags `t * pulse`', () => {
+    expect(rules('float clock = t * pulse;')).toContain('pulse-applied-twice');
+  });
+
+  it('flags the reversed operand order', () => {
+    expect(rules('float clock = pulse * t;')).toContain('pulse-applied-twice');
+  });
+
+  it('flags the compound form', () => {
+    expect(rules('t *= pulse;')).toContain('pulse-applied-twice');
+  });
+
+  it('does not chase the value through a copy, and says so', () => {
+    // `float c = t; c *= pulse;` is the same bug but needs dataflow analysis
+    // to see. This is a regex linter, so that case is knowingly out of reach —
+    // the rule catches the shape every shipped field actually used.
+    expect(rules('float c = t; c *= pulse;')).not.toContain('pulse-applied-twice');
+  });
+
+  it('allows `t` used directly', () => {
+    expect(rules('float clock = t;')).not.toContain('pulse-applied-twice');
+  });
+
+  it('allows pulse used as a non-timing cue', () => {
+    // pulse stays in the signature and may modulate amplitude — it just must
+    // never scale t.
+    expect(rules('float amp = pulse * 0.5;')).not.toContain('pulse-applied-twice');
+    expect(rules('float amp = energy * pulse;')).not.toContain('pulse-applied-twice');
+  });
+
+  it('does not flag identifiers that merely contain t or pulse', () => {
+    expect(rules('float x = tint * pulseWidth;')).not.toContain('pulse-applied-twice');
+  });
+});

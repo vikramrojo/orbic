@@ -99,7 +99,15 @@ float2 chladniMode(float idx) {
 }
 
 float3 field(float2 p, float t, float energy, float coherence, float warmth, float pulse) {
-    float clock = t * pulse;
+    // `t` arrives ALREADY scaled by `pulse` (and by the component's `speed`):
+    // the runtime accumulates the field clock as the integral of
+    // pulse * dt, which is the only phase-continuous way to do it, since
+    // `pulse` is spring-animated and changes throughout every transition.
+    // Multiplying by `pulse` again here would apply it twice — the effective
+    // rate would be pulse^2 — and computing phase as t * pulse(now) instead
+    // would jerk the animation by t * delta-pulse on every state change.
+    // See docs/shader-abi.md.
+    float clock = t;
     float2 pp = p * 2.0;
 
     // Cycle through mode pairs.

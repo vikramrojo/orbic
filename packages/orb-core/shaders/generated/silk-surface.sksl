@@ -244,7 +244,15 @@ vec4 shadeLayer(
 }
 
 vec3 field(vec2 p, float t, float energy, float coherence, float warmth, float pulse) {
-    float clock = t * pulse;
+    // `t` arrives ALREADY scaled by `pulse` (and by the component's `speed`):
+    // the runtime accumulates the field clock as the integral of
+    // pulse * dt, which is the only phase-continuous way to do it, since
+    // `pulse` is spring-animated and changes throughout every transition.
+    // Multiplying by `pulse` again here would apply it twice — the effective
+    // rate would be pulse^2 — and computing phase as t * pulse(now) instead
+    // would jerk the animation by t * delta-pulse on every state change.
+    // See docs/shader-abi.md.
+    float clock = t;
 
     // Lower coherence warps the fabric folds more (more turbulent); higher
     // coherence keeps folds closer to their unwarped shape.

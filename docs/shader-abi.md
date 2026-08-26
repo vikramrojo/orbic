@@ -94,8 +94,8 @@ deliberately not added.
 | `energy` | `0..1` | Amplitude / intensity axis — how strongly the field's motion or contrast reads. Observable on both shapes. |
 | `coherence` | `0..1` | Structure / density axis — low coherence reads as turbulent and diffuse, high coherence reads as ordered and crisp. Observable on both shapes. |
 | `warmth` | `0..1` | Palette axis, cool → warm. Observable on both shapes. |
-| `pulse` | `0..2` (every shipped preset stays within this range; the core does not clamp it) | Speed multiplier on the field's internal clock. Orb-only — see "Channel applicability" below. |
-| `t` | seconds, wraps at 3600 s | Time, see below. |
+| `pulse` | `0..2` (every shipped preset stays within this range; the core does not clamp it) | Speed multiplier on the field clock, **applied by the runtime, not by the field** — see "`pulse` is already in `t`" below. Orb-only — see "Channel applicability". |
+| `t` | seconds of field time, already scaled by `pulse` and `speed`; wraps at 3600 s | Time, see below. |
 
 These ranges and meanings aren't a guess — they come from mapping all six
 candidate radiant fields' bespoke uniforms onto the four channels as the
@@ -154,6 +154,35 @@ evaluated at, `pulse` produces no visible difference, so:
 Don't describe a `<Surface>` preset as "setting all four channels" — three of
 them do something observable; `pulse` is inert there by construction, not by
 omission.
+
+### `pulse` is already in `t` — never multiply by it
+
+`t` is **not** wall-clock seconds. The runtime accumulates the field clock as
+the integral of `pulse * speed * dt`, so `pulse` is already applied by the
+time a field sees `t`. A field must use `t` directly:
+
+```glsl
+float clock = t;          // correct
+float clock = t * pulse;  // WRONG — applies pulse twice
+```
+
+Both halves of this matter, and the second is the less obvious one:
+
+- **Multiplying again applies `pulse` twice**, making the effective rate
+  `pulse^2`. With the shipped presets that is 0.09x instead of 0.3x for
+  `subtle` and 4.0x instead of 2.0x for `pacing` — a bug that shipped in all
+  three fields on both platforms before the task 3.5 gate caught it.
+
+- **Accumulating is the only phase-continuous option.** `pulse` is
+  spring-animated, so it changes continuously throughout every transition.
+  Integrating `pulse * dt` yields a phase that never jumps. Computing
+  `t * pulse(now)` instead would shift the phase by `t * delta-pulse` on
+  every change — at `t = 1000 s` a 0.01 change in `pulse` jerks the animation
+  a full 10 seconds, and the glitch grows the longer the orb has been alive.
+
+`pulse` remains in the field signature and may be read as a non-timing cue —
+an intensity or magnitude hint — but it must never scale `t`. No shipped
+field currently uses it for anything.
 
 ### `t` wraps at 3600 seconds
 

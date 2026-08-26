@@ -177,6 +177,19 @@ export function lintShaderSource(source) {
     );
   }
 
+  // `t` multiplied by `pulse`. The runtime already accumulates the field
+  // clock as the integral of pulse * dt, so doing it again here applies
+  // pulse twice (effective rate pulse^2) — a bug that shipped in all three
+  // fields before the task 3.5 ABI gate caught it. Matches either operand
+  // order, and the compound form.
+  for (const m of findAll(stripped, /\bt\s*\*\s*pulse\b|\bpulse\s*\*\s*t\b|\bt\s*\*=\s*pulse\b/g)) {
+    push(
+      'pulse-applied-twice',
+      `line ${lineAt(source, m.index)}: \`t\` is already scaled by \`pulse\` — multiplying again applies it twice (effective rate pulse^2). Use \`t\` directly; see docs/shader-abi.md`,
+      m.index
+    );
+  }
+
   // Two-argument `atan(` — must be `oAtan2(` instead.
   for (const call of findCalls(stripped, 'atan')) {
     if (countTopLevelArgs(call.argsText) === 2) {
