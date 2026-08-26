@@ -190,6 +190,67 @@ export type FieldName = keyof typeof FIELD_SHADERS;
 }
 
 /**
+ * Writes ONE MODULE PER FIELD, plus a barrel that re-exports them.
+ *
+ * The single `FIELD_SHADERS` object this replaced could not be tree-shaken:
+ * bundlers cannot drop unused PROPERTIES of an object literal, so a consumer
+ * using one field still shipped the source of every other one — roughly 180 kB
+ * of shader text for five fields. Splitting them into modules lets a consumer
+ * import exactly the fields they use (task 10.1).
+ *
+ * The barrel still exists, because the harness and any consumer that genuinely
+ * wants every field should not have to enumerate them. Importing the barrel
+ * pulls everything in, by design; importing a field module pulls in only it.
+ */
+export function writePerFieldShaderModules(fieldsToArtifacts, outDir, target, label) {
+  const names = Object.keys(fieldsToArtifacts);
+
+  for (const [fieldName, artifacts] of Object.entries(fieldsToArtifacts)) {
+    const orb = artifacts.find((a) => a.shape === 'orb' && a.target === target).content;
+    const surface = artifacts.find((a) => a.shape === 'surface' && a.target === target).content;
+
+    const module = `// GENERATED FILE — DO NOT EDIT.
+// Regenerate with \`node scripts/build-shaders.mjs\`. ${label} sources for the
+// "${fieldName}" field. One module per field so a consumer bundles only what
+// it imports — see writePerFieldShaderModules in scripts/build-shaders.mjs.
+
+export const orb = ${JSON.stringify(orb)};
+export const surface = ${JSON.stringify(surface)};
+
+export default { orb, surface };
+`;
+    mkdirSync(resolve(outDir, 'fields'), { recursive: true });
+    writeFileSync(resolve(outDir, 'fields', `${fieldName}.ts`), module);
+  }
+
+  const imports = names.map((n) => `import * as ${identifier(n)} from './fields/${n}.js';`).join('\n');
+  const entries = names.map((n) => `  '${n}': ${identifier(n)},`).join('\n');
+
+  const barrel = `// GENERATED FILE — DO NOT EDIT.
+// Regenerate with \`node scripts/build-shaders.mjs\`.
+//
+// Barrel over every field's ${label} sources. Importing this pulls in ALL
+// fields by design; import './fields/<name>.js' directly (or the package's
+// \`fields/<name>\` subpath) to bundle only one.
+
+${imports}
+
+export const FIELD_SHADERS = {
+${entries}
+} as const;
+
+export type FieldName = keyof typeof FIELD_SHADERS;
+`;
+  mkdirSync(outDir, { recursive: true });
+  writeFileSync(resolve(outDir, 'shaders.ts'), barrel);
+}
+
+/** A field name as a valid JS identifier — `flat-color` is not one. */
+function identifier(name) {
+  return name.replace(/[^A-Za-z0-9_$]/g, '_');
+}
+
+/**
  * Writes the canonical list of shipped field names into `@orbic/core`, so
  * name resolution and the "first shipped field" fallback have ONE definition
  * shared by web, native and (via Fields.swift) Swift — rather than each
@@ -335,14 +396,14 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       }
     }
 
-    writeWebShaderModule(fieldsToArtifacts, webOutPath);
-    console.log(`Wrote ${Object.keys(fieldsToArtifacts).length} field(s) to ${webOutPath}`);
+    writePerFieldShaderModules(fieldsToArtifacts, dirname(webOutPath), 'glsl', 'GLSL');
+    console.log(`Wrote ${Object.keys(fieldsToArtifacts).length} per-field GLSL module(s) to ${dirname(webOutPath)}/fields`);
 
     writeCoreFieldNames(fieldsToArtifacts, coreFieldsOutPath);
     console.log(`Wrote ${Object.keys(fieldsToArtifacts).length} field name(s) to ${coreFieldsOutPath}`);
 
-    writeNativeShaderModule(fieldsToArtifacts, nativeOutPath);
-    console.log(`Wrote ${Object.keys(fieldsToArtifacts).length} field(s) to ${nativeOutPath}`);
+    writePerFieldShaderModules(fieldsToArtifacts, dirname(nativeOutPath), 'sksl', 'SkSL');
+    console.log(`Wrote ${Object.keys(fieldsToArtifacts).length} per-field SkSL module(s) to ${dirname(nativeOutPath)}/fields`);
 
     writeSwiftFieldNames(fieldsToArtifacts, swiftFieldsOutPath);
     console.log(`Wrote ${Object.keys(fieldsToArtifacts).length} field name(s) to ${swiftFieldsOutPath}`);

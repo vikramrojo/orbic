@@ -36,16 +36,48 @@ any of the three bundles is a light dependency.
 **Web (`@orbic/web`)** has **zero runtime dependencies**. It's raw WebGL2 on
 a single fullscreen quad — deliberately not Three.js or React Three Fiber,
 since `three` alone is 22 MB unpacked to draw one quad whose fragment shader
-is hand-written. A consumer importing one field pays roughly 6–8 KB gzipped
-total. Fields ship as separate entry points, so importing
-`@orbic/web/fields/silk` does not pull in the other two. Measured per-field
-shader payload, gzipped:
+is hand-written.
 
-| Field | Size (gzipped) |
+Fields ship as separate entry points, so a consumer pays only for what they
+import. Measured by bundling with esbuild (minified ESM, React external) and
+asserted by `packages/orb-web/tests/bundleSize.test.ts`, which fails if
+tree-shaking regresses:
+
+| Consumer | Bundle |
 |---|---|
-| Chladni Resonance | 1.3 KB |
-| Silk Cascade | 2.7 KB |
-| Shifting Veils | 2.3 KB |
+| One field, via `@orbic/web/minimal` | **53.1 kB** |
+| All five fields, via `@orbic/web` | **190.6 kB** |
+
+Getting the smaller number is opt-in, and deliberately so. Importing
+`@orbic/web` registers every field, because `<Orb field="anything" />` working
+out of the box is the better default. To pay for one field, import from
+`@orbic/web/minimal` and register it yourself:
+
+```ts
+import { Orb, registerField } from '@orbic/web/minimal';
+import veils from '@orbic/web/fields/veils';
+
+registerField('veils', veils);
+```
+
+Per-field shader payload, measured on the generated modules:
+
+| Field | Raw | Gzipped |
+|---|---|---|
+| chladni | 35.2 kB | 10.3 kB |
+| motes | 33.3 kB | 10.1 kB |
+| silk | 48.5 kB | 12.3 kB |
+| veils | 43.4 kB | 11.9 kB |
+| flat-color (placeholder) | 23.0 kB | 8.0 kB |
+
+Two things about those figures are worth stating rather than glossing. Each
+field module carries **both** shapes, and each artifact is the whole
+concatenated program — preamble, field, compositor, epilogue — so the shared
+preamble and compositors are duplicated across every field rather than shared
+between them. N fields therefore costs roughly N × (field + shared), not
+shared + N × field. That is the price of the artifacts being standalone
+programs, which is what makes them portable across three targets and lets a
+custom field be built by CLI without linking against anything.
 
 **Swift (`Orbic`)** has **no third-party dependencies at all**.
 

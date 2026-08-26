@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { DEFAULT_SURFACE_SCALE, renderFrame } from './gl/renderFrame.js';
-import { FIELD_SHADERS } from './generated/shaders.js';
-import { resolveFieldName, resolveStateName } from '@orbic/core';
+import { FIELD_NAMES, resolveFieldName, resolveStateName } from '@orbic/core';
 import { resolveSurfaceChannels } from './runtime/resolveSurfaceChannels.js';
 import { cssGradientForWarmth } from './ssrGradient.js';
 
-const DEFAULT_FIELD = Object.keys(FIELD_SHADERS)[0]!;
+const DEFAULT_FIELD = FIELD_NAMES[0];
 const DEFAULT_PRESET = 'subtle';
 
 const SURFACE_FIELD_CONTEXT = { component: '<Surface>', prop: 'field' };

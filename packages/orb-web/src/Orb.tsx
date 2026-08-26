@@ -1,17 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { presetChannels } from '@orbic/core';
-import { FIELD_SHADERS } from './generated/shaders.js';
 import { renderFrame } from './gl/renderFrame.js';
 import { usePrefersReducedMotion } from './hooks/usePrefersReducedMotion.js';
 import { useIsDocumentVisible } from './hooks/useIsDocumentVisible.js';
 import { useIsIntersecting } from './hooks/useIsIntersecting.js';
 import { OrbRuntime } from '@orbic/core';
-import { resolveFieldName, resolveStateName } from '@orbic/core';
+import { FIELD_NAMES, resolveFieldName, resolveStateName } from '@orbic/core';
 import { registerTicker } from './runtime/sharedTicker.js';
 import { cssOrbGradientForWarmth } from './ssrGradient.js';
 
-const DEFAULT_FIELD = Object.keys(FIELD_SHADERS)[0]!;
+const DEFAULT_FIELD = FIELD_NAMES[0];
 const DEFAULT_STATE = 'subtle';
 const DEFAULT_SIZE = 96;
 

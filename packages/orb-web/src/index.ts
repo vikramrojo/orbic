@@ -1,14 +1,16 @@
-export { Orb } from './Orb.js';
-export type { OrbProps } from './Orb.js';
+/**
+ * The all-fields entry point: importing this registers every shipped field, so
+ * `<Orb field="anything" />` just works.
+ *
+ * That convenience has a cost — every field's shader source ends up in the
+ * bundle, since the side-effecting registration below references them all.
+ * `@orbic/web/minimal` is the same API without it; see registry.ts.
+ */
+import { FIELD_SHADERS } from './generated/shaders.js';
+import { registerFields } from './registry.js';
 
-export { Surface } from './Surface.js';
-export type { SurfaceProps } from './Surface.js';
+registerFields(FIELD_SHADERS);
+
+export * from './minimal.js';
 
 export { FIELD_SHADERS } from './generated/shaders.js';
-export type { FieldName } from './generated/shaders.js';
-
-export { sharedGLContext, SharedGLContext } from './gl/sharedContext.js';
-export { OrbRuntime } from '@orbic/core';
-export type { OrbUniforms } from '@orbic/core';
-export { resolveFieldName, resolveStateName } from '@orbic/core';
-export { cappedDevicePixelRatio, drawingBufferSize, MAX_DEVICE_PIXEL_RATIO } from './runtime/dpr.js';

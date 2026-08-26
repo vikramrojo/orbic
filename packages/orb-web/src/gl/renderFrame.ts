@@ -1,5 +1,5 @@
-import { FIELD_SHADERS } from '../generated/shaders.js';
-import type { FieldName } from '../generated/shaders.js';
+import type { FieldName } from '@orbic/core';
+import { fieldSources } from '../registry.js';
 import { drawingBufferSize } from '../runtime/dpr.js';
 import { fallbackColorFromChannels } from '@orbic/core';
 import type { OrbUniforms } from '@orbic/core';
@@ -66,7 +66,16 @@ export function renderFrame({
     return;
   }
 
-  const fragmentSource = FIELD_SHADERS[fieldName][shape];
+  const sources = fieldSources(fieldName);
+  if (!sources) {
+    // Never registered. Normal for the minimal entry point, where the consumer
+    // registers only the fields they use — degrade to the flat colour rather
+    // than crash (platform-renderers spec).
+    paintFallback(canvas, shape, bufferWidth, bufferHeight, uniforms);
+    return;
+  }
+
+  const fragmentSource = sources[shape];
   const compiled = sharedGLContext.getOrCompileProgram(`${fieldName}-${shape}`, fragmentSource);
   if (!compiled) {
     paintFallback(canvas, shape, bufferWidth, bufferHeight, uniforms);

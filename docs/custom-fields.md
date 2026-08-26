@@ -104,8 +104,10 @@ That regenerates, for every field:
 | Output | Consumer |
 | --- | --- |
 | `packages/orb-core/shaders/generated/*.{glsl,sksl,metal}` | reference artifacts |
-| `packages/orb-web/src/generated/shaders.ts` | web (GLSL) |
-| `packages/orb-native/src/generated/shaders.ts` | React Native (SkSL) |
+| `packages/orb-web/src/generated/fields/*.ts` | web (GLSL), one module per field |
+| `packages/orb-web/src/generated/shaders.ts` | web barrel over all fields |
+| `packages/orb-native/src/generated/fields/*.ts` | React Native (SkSL), per field |
+| `packages/orb-native/src/generated/shaders.ts` | native barrel over all fields |
 | `packages/orb-core/src/generated/fields.ts` | the canonical `FIELD_NAMES` |
 | `Sources/Orbic/Generated/Fields.swift` | Swift's `OrbicFields.all` |
 | `Sources/Orbic/Shaders/*.metal` | Swift, via metallibs |
@@ -230,7 +232,26 @@ pnpm --filter @orbic/example-web exec vite --host 0.0.0.0
 
 ---
 
-## 5. Consuming a field without forking Orbic
+## 5. Paying only for the fields you use
+
+Importing `@orbic/web` registers every shipped field, so `<Orb field="anything" />`
+works with no setup. That convenience costs roughly 190 kB minified; one field
+is 53 kB. To pay for one, use the minimal entry point and register it:
+
+```ts
+import { Orb, registerField } from '@orbic/web/minimal';
+import motes from '@orbic/web/fields/motes';
+
+registerField('motes', motes);
+```
+
+An unregistered field is not an error — the renderer degrades to its flat
+fallback colour, exactly as it does when a shader fails to compile on a
+device. `packages/orb-web/tests/bundleSize.test.ts` bundles both shapes of
+consumer with esbuild and fails if an unused field's source appears, so this
+cannot silently regress.
+
+## 6. Consuming a field without forking Orbic
 
 `orbic build-shader` writes plain text artifacts. The web renderer takes GLSL
 source strings and the native one takes SkSL, both keyed by field name, so a
