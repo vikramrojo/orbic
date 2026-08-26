@@ -116,8 +116,8 @@ Native and Swift work (groups 8-9) deliberately waits. Tuning discovered here ch
 - [ ] 10.1 Configure per-field entry points and assert an unused field is absent from a consumer bundle
 - [ ] 10.2 Measure and record shipped bundle size per platform for a one-field consumer
 - [ ] 10.3 Add `react` as a peer of `@orbic/web` (currently declares none) and audit every manifest for peers the library never imports
-- [ ] 10.4 Implement the `orbic build-shader` CLI producing six artifacts from a custom field
-- [ ] 10.5 Verify the CLI writes no artifacts when the lint fails
+- [x] 10.4 Implement the `orbic build-shader` CLI producing six artifacts from a custom field — `packages/orb-core/bin/orbic.mjs`, registered as the `orbic` bin (and added to `files` so it survives packing)
+- [x] 10.5 Verify the CLI writes no artifacts when the lint fails — structural rather than cleanup: the lint throws inside `buildArtifacts` before any write, and the CLI never pre-creates the output directory, so a rejected field leaves no directory at all (not merely an empty one). Covered by tests asserting `existsSync(outDir) === false`, exit code 1, and that the message names the violated rule and line
 - [x] 10.6 Document the frozen uniform ABI, the portable subset, and the `oMod`/`oAtan2` shims
 - [x] 10.7 Document the React Native dependency floor honestly, including that Skia is required and is large
 - [ ] 10.8 Build the web, native and iOS example apps showing an Orb and Surface sharing a field
