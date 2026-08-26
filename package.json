@@ -15,6 +15,7 @@
     "build:shaders": "node scripts/build-shaders.mjs",
     "build:metallibs": "node scripts/build-metallibs.mjs",
     "check-shaders": "node scripts/check-shaders.mjs",
+    "orbic": "node packages/orb-core/bin/orbic.mjs",
     "dev:web": "pnpm --filter @orbic/core run build && pnpm --filter @orbic/example-web run dev"
   },
   "devDependencies": {

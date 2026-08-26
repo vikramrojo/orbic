@@ -10,6 +10,7 @@ public enum OrbicFields {
     public static let all: [String] = [
         "chladni",
         "flat-color",
+        "motes",
         "silk",
         "veils",
     ]

@@ -20,8 +20,13 @@ every shape on every platform.
 
 - [`docs/shader-abi.md`](./docs/shader-abi.md) — the two-function shader
   contract, the world-space coordinate convention, the four-channel uniform
-  ABI, and the portable shader subset. Start here before authoring a custom
-  field.
+  ABI, and the portable shader subset. **Frozen**; start here before
+  authoring a custom field.
+- [`docs/custom-fields.md`](./docs/custom-fields.md) — the end-to-end
+  workflow for a custom field: write it, build it with `pnpm orbic
+  build-shader`, prove it with the lint/compile/contrast checks, and see it in
+  the example harness. The harness enumerates whatever fields the build
+  produced, so a new one needs no edit to the app.
 
 ## Bundle size and dependencies
 

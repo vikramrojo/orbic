@@ -68,7 +68,7 @@
 - [x] 7.2 Verify no rAF loop is scheduled, and that eight mounted Surfaces schedule no per-frame work
 - [x] 7.3 Implement the automated contrast check: brightest rendered luminance vs body-text colour, asserting ≥ 4.5:1 (WCAG AA)
 - [x] 7.4 Run the check across all 3 fields × 5 presets and tune the compositor until every combination passes
-- [ ] 7.5 Wire the contrast check into CI so a legibility regression fails the build
+- [x] 7.5 Wire the contrast check into CI so a legibility regression fails the build — `render-check-contrast` job, which runs `self-test.mjs` FIRST so a broken comparator cannot report a false PASS, and neither step is `if [ -f ]`-guarded (a guard would turn a deleted check into a green build)
 - [x] 7.6 Implement unknown-`preset`/`field` fallback with a warning naming the valid options
 - [x] 7.7 Build a runnable web dev harness (Vite dev server + demo page) showing `<Orb>` in all five presets and `<Surface>` behind real body text, with a field switcher — REQUIRED for the review checkpoint below
 - [x] 7.8 Make `<Surface>` non-interactive on every platform: `pointer-events: none` (web), `pointerEvents="none"` (RN Skia canvases absorb touches natively), `.allowsHitTesting(false)` (SwiftUI)
@@ -115,7 +115,7 @@ Native and Swift work (groups 8-9) deliberately waits. Tuning discovered here ch
 
 - [ ] 10.1 Configure per-field entry points and assert an unused field is absent from a consumer bundle
 - [ ] 10.2 Measure and record shipped bundle size per platform for a one-field consumer
-- [ ] 10.3 Add `react` as a peer of `@orbic/web` (currently declares none) and audit every manifest for peers the library never imports
+- [x] 10.3 Add `react` as a peer of `@orbic/web` and audit every manifest — the premise was stale: a `react` peer was already declared (`>=18.0.0`) and `@orbic/native` already marked reanimated optional. Range tightened to `^18.0.0 || ^19.0.0` (bounding the open upper end without dropping React 18, which orb-web has no reason to require); imports grepped to confirm every declared peer is genuinely used
 - [x] 10.4 Implement the `orbic build-shader` CLI producing six artifacts from a custom field — `packages/orb-core/bin/orbic.mjs`, registered as the `orbic` bin (and added to `files` so it survives packing)
 - [x] 10.5 Verify the CLI writes no artifacts when the lint fails — structural rather than cleanup: the lint throws inside `buildArtifacts` before any write, and the CLI never pre-creates the output directory, so a rejected field leaves no directory at all (not merely an empty one). Covered by tests asserting `existsSync(outDir) === false`, exit code 1, and that the message names the violated rule and line
 - [x] 10.6 Document the frozen uniform ABI, the portable subset, and the `oMod`/`oAtan2` shims

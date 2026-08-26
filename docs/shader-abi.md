@@ -11,6 +11,10 @@ the lineage it was designed against — see `gate-3.5/findings.md`. Changes to
 the function signatures, the channel meanings, or the portable subset are
 breaking changes from here.
 
+For the practical workflow — building, testing and previewing a custom
+field — see [`custom-fields.md`](./custom-fields.md). This document is the
+contract; that one is the process.
+
 One caveat is worth reading before designing a field around this ABI:
 **`coherence` is a lossy projection.** It is the only structural channel, and
 a field with more than one structural axis must bind them all to a single
