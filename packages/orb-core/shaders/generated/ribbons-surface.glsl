@@ -110,10 +110,16 @@ vec3 field(vec2 p, float t, float energy, float coherence, float warmth, float p
     // coherence is calm, tightly-spaced, crisp bands; low coherence is loose,
     // wide, restless ones. "Tight but restless" is unreachable, and that is a
     // property of the contract rather than an oversight here.
-    float bandSpacing = mix(0.62, 0.34, coherence);
-    float dotSpacing = mix(0.30, 0.17, coherence);
-    float dotRadius = mix(0.085, 0.052, coherence);
-    float waveAmp = mix(0.30, 0.10, coherence);
+    // These are WORLD-SPACE units, and the orb is only ~0.92 across
+    // (ORB_RADIUS 0.46). A first pass used 0.34-0.62 band spacing, which put
+    // barely two bands and about eight dots inside the orb — the dots read as
+    // scattered specks with no band structure at all, because there was not
+    // enough of a band on screen to see. At ~0.10 spacing roughly nine bands
+    // of eleven dots land in the orb, which is the density the reference has.
+    float bandSpacing = mix(0.130, 0.075, coherence);
+    float dotSpacing = mix(0.110, 0.062, coherence);
+    float dotRadius = mix(0.022, 0.014, coherence);
+    float waveAmp = mix(0.050, 0.018, coherence);
 
     // Bands run along x and stack along y. Rotating the whole field slightly
     // keeps them off the pixel grid, which stops the dots aliasing into
@@ -154,7 +160,7 @@ vec3 field(vec2 p, float t, float energy, float coherence, float warmth, float p
 
             // Soft halo for the field's overall glow, plus a tighter core so
             // each dot stays legible as a point instead of dissolving.
-            glow += (1.0 - smoothstep(0.0, radius * 3.0, d)) * 0.30 * weight;
+            glow += (1.0 - smoothstep(0.0, radius * 2.2, d)) * 0.42 * weight;
             cores += (1.0 - smoothstep(0.0, radius, d)) * weight;
         }
     }
@@ -164,7 +170,7 @@ vec3 field(vec2 p, float t, float energy, float coherence, float warmth, float p
     glow *= breathe;
     cores *= breathe;
 
-    float amplitude = mix(0.25, 1.0, energy);
+    float amplitude = mix(0.45, 1.0, energy);
 
     // Warmth is authored, not remapped: no field in this lineage has a native
     // warmth concept (docs/shader-abi.md), so the palette is original work.
@@ -177,7 +183,7 @@ vec3 field(vec2 p, float t, float energy, float coherence, float warmth, float p
     // a first pass did, bleached the palette badly enough that a full warmth
     // sweep moved the image by only 1.6/255: technically observable, visually
     // nothing. At 0.3 the dots still read as light and warmth actually tells.
-    vec3 col = tint * glow * 0.8 + mix(tint, vec3(1.0), 0.3) * cores * 0.62;
+    vec3 col = tint * glow * 1.15 + mix(tint, vec3(1.0), 0.32) * cores * 1.05;
     col *= amplitude;
 
     // Grain, matching the house convention in the other fields.
