@@ -1,10 +1,23 @@
 # The Orbic shader ABI
 
 This is the reference for anyone authoring a custom field, and the reference
-Orbic's own built-in fields are ported against. It documents a contract that
-becomes frozen once third-party shaders exist against it: the two-function
+Orbic's own built-in fields are ported against. It documents the two-function
 split, the coordinate convention, the four-channel uniform ABI, and the
 portable subset a field body is allowed to use.
+
+**Status: FROZEN.** The validation gate (`openspec/changes/orbic-foundation/`,
+tasks 3.1–3.6) closed after the contract was exercised by a field from outside
+the lineage it was designed against — see `gate-3.5/findings.md`. Changes to
+the function signatures, the channel meanings, or the portable subset are
+breaking changes from here.
+
+One caveat is worth reading before designing a field around this ABI:
+**`coherence` is a lossy projection.** It is the only structural channel, and
+a field with more than one structural axis must bind them all to a single
+hand-chosen curve. The gate field wanted three independent ones — cell
+density, jitter and edge sharpness — so the combinations off that curve are
+simply unreachable. Fields designed with one structural idea fit comfortably;
+fields with several will lose some of their own range.
 
 ## The two-function contract
 

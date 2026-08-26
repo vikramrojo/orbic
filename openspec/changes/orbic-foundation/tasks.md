@@ -21,8 +21,8 @@
 - [x] 3.2 Map Silk Cascade's `u_flowSpeed` and `u_sheenIntensity` onto the four channels and define its `warmth` response
 - [x] 3.3 Map Shifting Veils' `u_layerSpeed` and `u_layerCount` onto the four channels and define its `warmth` response
 - [x] 3.4 Record the mappings in `design.md`; if any field cannot be expressed in four channels, revise the ABI before proceeding
-- [ ] 3.5 Sanity-check the contract against one field outside the shipped set, to compensate for the sample shrinking to three
-- [ ] 3.6 Declare the ABI frozen and document it
+- [x] 3.5 Sanity-check the contract against one field outside the shipped set — `gate-3.5/cellular-drift.orb`, from the Shadertoy/IQ cellular-noise tradition, built via the shipped CLI and compiled on real Metal and real Skia; `gate-3.5/probe.mjs` sweeps each channel and `gate-3.5/findings.md` records the numbers. Passes, but overturns "four channels are not too tight": `coherence` is a lossy projection, and the exercise caught the `pulse`-applied-twice bug
+- [x] 3.6 Declare the ABI frozen and document it — `docs/shader-abi.md` now opens with **Status: FROZEN** plus the `coherence`-is-lossy caveat, and `design.md`'s gate section records the closure and the revised finding
 
 ## 4. Shader pipeline
 
