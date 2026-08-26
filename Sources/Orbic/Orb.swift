@@ -1,0 +1,140 @@
+import SwiftUI
+
+/// An animated Orb: a field composited into a masked sphere, driven by the
+/// shared spring integrator.
+///
+/// The public surface (`field`, `state`, `size`, `speed`, `paused`) matches
+/// `<Orb>` on web and native, with the same defaults — the orb-component
+/// spec requires no platform-only prop and no differing default.
+@available(iOS 17.0, macOS 14.0, *)
+public struct Orb: View {
+    private let field: String
+    private let state: String
+    private let size: CGFloat
+    private let speed: Double
+    private let paused: Bool
+
+    public init(
+        field: String,
+        state: String = OrbicPreset.subtle.rawValue,
+        size: CGFloat = 160,
+        speed: Double = 1,
+        paused: Bool = false
+    ) {
+        self.field = field
+        self.state = state
+        self.size = size
+        self.speed = speed
+        self.paused = paused
+    }
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// One driver per Orb instance: two Orbs in different states must not
+    /// share springs.
+    @State private var driver: OrbDriver?
+
+    private var resolvedField: String { OrbicResolve.field(field, component: "Orb") }
+    private var resolvedPreset: OrbicPreset {
+        OrbicResolve.preset(state, component: "Orb", prop: "state")
+    }
+
+    /// True when the Orb must render exactly one frame and schedule no
+    /// per-frame work: either the caller paused it, or the system asked for
+    /// reduced motion. Reduced motion renders at the preset's resting values
+    /// rather than animating slowly (platform-renderers spec).
+    private var isStatic: Bool { paused || reduceMotion }
+
+    public var body: some View {
+        let preset = resolvedPreset
+        let restingChannels = OrbicPresets.channels[preset]!
+
+        Group {
+            if let libraryURL = OrbicShaderLibrary.resolveOrReport(field: resolvedField, shape: .orb) {
+                if isStatic {
+                    // No TimelineView at all — creating one and freezing it
+                    // would still schedule work.
+                    OrbShaderLayer(
+                        libraryURL: libraryURL,
+                        channels: driver?.channels ?? restingChannels,
+                        time: driver?.time ?? 0,
+                        size: size
+                    )
+                } else {
+                    TimelineView(.animation) { timeline in
+                        let driver = ensureDriver(for: preset)
+                        let channels = driver.advance(to: timeline.date, speed: speed)
+
+                        OrbShaderLayer(
+                            libraryURL: libraryURL,
+                            channels: channels,
+                            time: driver.time,
+                            size: size
+                        )
+                    }
+                }
+            } else {
+                // Shader unavailable: a solid colour from warmth/energy,
+                // rather than a crash or an empty region.
+                Color.orbicFallback(warmth: restingChannels.warmth, energy: restingChannels.energy)
+                    .clipShape(Circle())
+            }
+        }
+        // A concrete frame, not a scaleEffect: a `size` change must
+        // re-evaluate the shader at the new resolution rather than upscale an
+        // already-rasterised image (orb-component spec).
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
+        .onChange(of: state) { _, _ in
+            driver?.retarget(to: resolvedPreset)
+        }
+        .onChange(of: isStatic) { _, nowStatic in
+            // Coming back from paused/reduced-motion, drop the stale
+            // timestamp so the idle gap isn't integrated as one huge delta.
+            if !nowStatic { driver?.resume() }
+        }
+    }
+
+    /// Lazily creates the driver on the first animated frame. `@State` cannot
+    /// be initialised from `preset` at `init` time without recreating it on
+    /// every re-render, which would reset the springs mid-transition.
+    private func ensureDriver(for preset: OrbicPreset) -> OrbDriver {
+        if let driver {
+            return driver
+        }
+        let created = OrbDriver(preset: preset)
+        // Assigning during body evaluation is safe here because the value is
+        // nil exactly once; the assignment does not change what this frame
+        // renders.
+        DispatchQueue.main.async { self.driver = created }
+        return created
+    }
+}
+
+/// The shader-backed layer itself, split out so the animated and static paths
+/// share one definition of how uniforms reach the shader.
+@available(iOS 17.0, macOS 14.0, *)
+private struct OrbShaderLayer: View {
+    let libraryURL: URL
+    let channels: OrbicChannels
+    let time: Double
+    let size: CGFloat
+
+    var body: some View {
+        // Argument order is the frozen uniform ABI (docs/shader-abi.md).
+        // `position` and `color` are supplied by colorEffect itself, so the
+        // explicit list starts at `resolution`.
+        let shader = ShaderLibrary(url: libraryURL).orbicOrb(
+            .float2(Float(size), Float(size)),
+            .float(Float(time)),
+            .float(Float(channels.energy)),
+            .float(Float(channels.coherence)),
+            .float(Float(channels.warmth)),
+            .float(Float(channels.pulse))
+        )
+
+        Rectangle()
+            .foregroundStyle(.white)
+            .colorEffect(shader)
+    }
+}

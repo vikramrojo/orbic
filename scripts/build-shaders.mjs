@@ -189,16 +189,57 @@ export type FieldName = keyof typeof FIELD_SHADERS;
   writeFileSync(outPath, module);
 }
 
+/**
+ * Writes the generated Swift list of shipped field names, so the Swift
+ * bundle resolves `field` against exactly the same set — and the same
+ * ordering, which decides the "first shipped field" fallback — as
+ * `@orbic/web`'s FIELD_SHADERS. The Metal sources themselves are not
+ * embedded here: Swift loads prebuilt .metallib resources instead (task
+ * 9.2, scripts/build-metallibs.mjs).
+ */
+export function writeSwiftFieldNames(fieldsToArtifacts, outPath) {
+  const names = Object.keys(fieldsToArtifacts);
+  const cases = names.map((n) => `        "${n}",`).join('\n');
+
+  const source = `// GENERATED FILE — DO NOT EDIT.
+// Regenerate with \`node scripts/build-shaders.mjs\`. Sourced from
+// packages/orb-core/shaders/fields/*.orb via scripts/build-shaders.mjs's
+// writeSwiftFieldNames.
+
+public enum OrbicFields {
+    /// Every field shipped with this build, in the same order as the web
+    /// bundle's FIELD_SHADERS, so both platforms fall back to the same
+    /// "first shipped field" for an unknown name.
+    public static let all: [String] = [
+${cases}
+    ]
+
+    /// Field used when a caller supplies a name that does not exist.
+    public static var fallback: String { all[0] }
+}
+`;
+
+  mkdirSync(dirname(outPath), { recursive: true });
+  writeFileSync(outPath, source);
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
   const fieldsDir = resolve(rootDir, 'packages/orb-core/shaders/fields');
   const compositorsDir = resolve(rootDir, 'packages/orb-core/shaders/compositors');
   const outDir = resolve(rootDir, 'packages/orb-core/shaders/generated');
   const metalOutDir = resolve(rootDir, 'Sources/Orbic/Shaders');
   const webOutPath = resolve(rootDir, 'packages/orb-web/src/generated/shaders.ts');
+  const swiftFieldsOutPath = resolve(rootDir, 'Sources/Orbic/Generated/Fields.swift');
 
   // Both shapes now have their real compositor: orb.orb (task 5.1) and
   // surface.orb (task 6.4). Every shipped field is built against both.
-  const fieldFiles = readdirSync(fieldsDir).filter((f) => f.endsWith('.orb'));
+  // Sorted: `readdirSync` order is filesystem-dependent, and it decides both
+  // the key order of the generated web module and which field is the
+  // "first shipped field" fallback. Unsorted, the generated files could
+  // differ between machines and trip the CI freshness check spuriously.
+  const fieldFiles = readdirSync(fieldsDir)
+    .filter((f) => f.endsWith('.orb'))
+    .sort();
   const orbCompositorFile = 'orb.orb';
   const surfaceCompositorFile = 'surface.orb';
 
@@ -238,6 +279,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
     writeWebShaderModule(fieldsToArtifacts, webOutPath);
     console.log(`Wrote ${Object.keys(fieldsToArtifacts).length} field(s) to ${webOutPath}`);
+
+    writeSwiftFieldNames(fieldsToArtifacts, swiftFieldsOutPath);
+    console.log(`Wrote ${Object.keys(fieldsToArtifacts).length} field name(s) to ${swiftFieldsOutPath}`);
   } catch (err) {
     console.error(err.message);
     process.exit(1);
