@@ -1,7 +1,7 @@
 # Building and testing a custom field
 
 A **field** is the material an Orb or a Surface is made of. Orbic ships four
-(`chladni`, `motes`, `silk`, `veils`, plus the `flat-color` placeholder), but
+(`chladni`, `ribbons`, `silk`, `veils`, plus the `flat-color` placeholder), but
 the pipeline takes any number, and nothing in the harness or the components is
 hardcoded to the shipped set.
 
@@ -38,8 +38,8 @@ A field is one function:
 vec3 field(vec2 p, float t, float energy, float coherence, float warmth, float pulse)
 ```
 
-Copy an existing one as a starting point. `packages/orb-core/shaders/fields/motes.orb`
-is the most heavily commented and shows the cell-lattice pattern; `chladni.orb`
+Copy an existing one as a starting point. `packages/orb-core/shaders/fields/ribbons.orb`
+is the most heavily commented and shows the dotted-band pattern; `chladni.orb`
 is the cheapest and simplest.
 
 Four things catch people out, all of them enforced:
@@ -59,9 +59,10 @@ data-driven count, use a constant bound with an early `break`, as
 **Cover the plane, don't compose a picture.** World space is normalised by
 `min(resolution.x, resolution.y)`, and a Surface reveals more world space along
 its long axis. A field built around a centred focal point gets stranded in
-emptiness on a wide Surface. The cell-lattice structure in `motes.orb` is the
-in-repo answer: divide the plane into cells, give each one a feature, and look
-only at the 3×3 neighbourhood.
+emptiness on a wide Surface. `ribbons.orb` is the in-repo answer: bands that
+repeat across the plane, so the orb crops to a few of them while a Surface
+keeps going. A structure that tiles works on both shapes; a centred motif does
+not.
 
 **`coherence` is your only structural channel, and it is lossy.** If your field
 has several structural ideas — density, size, softness, travel — they must all
@@ -168,7 +169,7 @@ rows.
 If you fail it, the cause is usually brightness. `surface.orb`'s
 `SURFACE_GAIN`/`SURFACE_KNEE` were solved against two measured points (Veils
 peaking ~0.20, Chladni/Silk ~0.90) so both extremes land in a visible-but-safe
-band. Additive fields — anything that sums contributions, like `motes` — trend
+band. Additive fields — anything that sums contributions, like `ribbons` — trend
 toward the bright end. Scale your output down rather than re-tuning the
 compositor, which would move every other field.
 
@@ -240,9 +241,9 @@ is 53 kB. To pay for one, use the minimal entry point and register it:
 
 ```ts
 import { Orb, registerField } from '@orbic/web/minimal';
-import motes from '@orbic/web/fields/motes';
+import ribbons from '@orbic/web/fields/ribbons';
 
-registerField('motes', motes);
+registerField('ribbons', ribbons);
 ```
 
 An unregistered field is not an error — the renderer degrades to its flat

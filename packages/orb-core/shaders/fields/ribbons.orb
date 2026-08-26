@@ -1,0 +1,144 @@
+// Ribbons — dotted bands that undulate across the plane.
+//
+// The reference for this family of look is the "thinking orb" indicator: an
+// orb built out of DOTS arranged on structure — rings, meridians, a
+// multi-band sash — rather than dots scattered at random. An earlier attempt
+// here (`motes`) placed one dot per lattice cell, which covers the plane
+// evenly and is therefore, visually, just noise. The structure is the point:
+// dots read as an object when they lie on paths.
+//
+// WHY BANDS RATHER THAN RINGS
+//
+// The closest single reference is a ring that slowly morphs, and rings are
+// what a dotted orb usually is. But a ring is a CENTRED composition, and a
+// field here has to work as a `<Surface>` too — which reveals much more world
+// space along its long axis, stranding any centred motif in emptiness (the
+// failure docs/shader-abi.md warns about, and the reason chladni.orb dropped
+// its bounded "plate").
+//
+// Bands solve it: they repeat across the plane, so a Surface shows a wavy
+// dotted texture that keeps going, while the orb compositor's mask crops the
+// same field to a disc where a handful of bands read as wrapping a sphere.
+// One field, honest on both shapes.
+//
+// WHAT THIS DELIBERATELY DOES NOT DO
+//
+// In the reference, dots bunch up toward the orb's edge because they are
+// projected onto a sphere. That cannot happen here, and not for want of
+// trying: `field()` receives only `p` and has no idea whether it is being
+// composited into a sphere or a full-bleed rectangle. Perspective is a
+// property of the SHAPE, and the two-function split (docs/shader-abi.md)
+// puts shape in `composite()`. The orb compositor's own Fresnel densification
+// supplies the sphere read instead.
+//
+// COST: 3 bands x 3 dot slots = 9 dot evaluations, plus 2 hashes each —
+// comparable to a 3x3 lattice, between chladni (~3 hashes) and silk (~72).
+// Portable subset throughout: constant-bound `for` loops, no arrays, no
+// `mod`/two-arg `atan`, no textures.
+
+float ribbonHash(vec2 p) {
+    vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
+}
+
+// Vertical offset of band `band` at horizontal position `x`.
+//
+// Two sine terms at different frequencies rather than one: a single sine
+// reads as a regular corrugation, while two beating against each other give
+// the looser, hand-drawn wander the reference has.
+float ribbonWave(float x, float band, float clock, float amp) {
+    float phase = band * 1.7;
+    return amp * (sin(x * 1.7 + phase + clock * 0.55) * 0.65
+                + sin(x * 0.9 - phase * 0.6 + clock * 0.31) * 0.35);
+}
+
+vec3 field(vec2 p, float t, float energy, float coherence, float warmth, float pulse) {
+    // `t` already carries `pulse` and the component's `speed`
+    // (docs/shader-abi.md); multiplying again would apply it twice.
+    float clock = t;
+
+    // THE SINGLE STRUCTURAL AXIS.
+    //
+    // Band spacing, dot spacing, dot size and undulation amplitude are four
+    // separate ideas riding one `coherence` curve, because that is the only
+    // structural channel the frozen ABI provides (gate-3.5/findings.md). High
+    // coherence is calm, tightly-spaced, crisp bands; low coherence is loose,
+    // wide, restless ones. "Tight but restless" is unreachable, and that is a
+    // property of the contract rather than an oversight here.
+    float bandSpacing = mix(0.62, 0.34, coherence);
+    float dotSpacing = mix(0.30, 0.17, coherence);
+    float dotRadius = mix(0.085, 0.052, coherence);
+    float waveAmp = mix(0.30, 0.10, coherence);
+
+    // Bands run along x and stack along y. Rotating the whole field slightly
+    // keeps them off the pixel grid, which stops the dots aliasing into
+    // visible rows on a Surface.
+    vec2 q = vec2(p.x * 0.94 - p.y * 0.34, p.x * 0.34 + p.y * 0.94);
+
+    float bandIndex = floor(q.y / bandSpacing);
+    float glow = 0.0;
+    float cores = 0.0;
+
+    // Constant bounds: the portable subset forbids unbounded and `while`
+    // loops. A band further than one spacing away cannot reach this pixel,
+    // because waveAmp stays below half a band.
+    for (int b = -1; b <= 1; b++) {
+        float band = bandIndex + float(b);
+        float slotIndex = floor(q.x / dotSpacing);
+
+        for (int i = -1; i <= 1; i++) {
+            float slot = slotIndex + float(i);
+
+            // The dot's own x decides where its band sits, so dots ride the
+            // wave rather than being sampled off it.
+            float dotX = (slot + 0.5) * dotSpacing;
+            float dotY = (band + 0.5) * bandSpacing + ribbonWave(dotX, band, clock, waveAmp);
+
+            float d = length(q - vec2(dotX, dotY));
+
+            // Per-dot size and brightness variation, so a band reads as
+            // hand-placed rather than as a printed dotted line.
+            float character = ribbonHash(vec2(slot, band));
+
+            // A brightness wave travelling ALONG the band is what makes the
+            // sash look like it is being drawn rather than merely wobbling.
+            float travel = 0.55 + 0.45 * sin(dotX * 2.1 - clock * 1.3 + band * 0.9);
+
+            float radius = dotRadius * (0.65 + 0.7 * character);
+            float weight = travel * (0.55 + 0.45 * character);
+
+            // Soft halo for the field's overall glow, plus a tighter core so
+            // each dot stays legible as a point instead of dissolving.
+            glow += (1.0 - smoothstep(0.0, radius * 3.0, d)) * 0.30 * weight;
+            cores += (1.0 - smoothstep(0.0, radius, d)) * weight;
+        }
+    }
+
+    // Slow collective breathing, so a still frame and a moving one differ.
+    float breathe = 0.90 + 0.10 * sin(clock * 0.4);
+    glow *= breathe;
+    cores *= breathe;
+
+    float amplitude = mix(0.25, 1.0, energy);
+
+    // Warmth is authored, not remapped: no field in this lineage has a native
+    // warmth concept (docs/shader-abi.md), so the palette is original work.
+    vec3 cool = vec3(0.34, 0.52, 0.82);
+    vec3 warm = vec3(0.90, 0.55, 0.28);
+    vec3 tint = mix(cool, warm, warmth);
+
+    // Cores lift toward white so the brightest dots read as light rather than
+    // as saturated colour — but only partway. Lifting them 60% of the way, as
+    // a first pass did, bleached the palette badly enough that a full warmth
+    // sweep moved the image by only 1.6/255: technically observable, visually
+    // nothing. At 0.3 the dots still read as light and warmth actually tells.
+    vec3 col = tint * glow * 0.8 + mix(tint, vec3(1.0), 0.3) * cores * 0.62;
+    col *= amplitude;
+
+    // Grain, matching the house convention in the other fields.
+    float grain = ribbonHash(p * 700.0 + clock * 11.0);
+    col += (grain - 0.5) * 0.01;
+
+    return clamp(col, 0.0, 1.0);
+}

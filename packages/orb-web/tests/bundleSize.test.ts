@@ -66,10 +66,10 @@ describe('per-field entry points (task 10.1)', () => {
     expect(code).toContain('VEIL_LAYER_COUNT');
 
     // ...and the ones that were not are absent. These are large: chladni,
-    // silk and motes are tens of kB of shader source each.
+    // silk and ribbons are tens of kB of shader source each.
     expect(code).not.toContain('chladniPattern');
     expect(code).not.toContain('fabricFold');
-    expect(code).not.toContain('motePosition');
+    expect(code).not.toContain('ribbonWave');
   }, 60_000);
 
   it('the all-fields entry point does ship them all, by design', async () => {
@@ -79,7 +79,7 @@ describe('per-field entry points (task 10.1)', () => {
     `);
 
     // The convenience of `<Orb field="anything" />` is exactly this cost.
-    for (const marker of ['VEIL_LAYER_COUNT', 'chladniPattern', 'fabricFold', 'motePosition']) {
+    for (const marker of ['VEIL_LAYER_COUNT', 'chladniPattern', 'fabricFold', 'ribbonWave']) {
       expect(code, `all-fields entry should contain ${marker}`).toContain(marker);
     }
   }, 60_000);

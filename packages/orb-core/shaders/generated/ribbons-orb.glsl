@@ -1,154 +1,187 @@
-// Orbic shader preamble — Metal Shading Language ([[stitchable]]).
+#version 300 es
+// Orbic shader preamble — GLSL ES 3.00 (WebGL2).
 //
-// Declares no uniform globals: unlike GLSL and SkSL, MSL `[[stitchable]]`
-// functions have no global uniform storage to read — the ABI arrives as
-// explicit function arguments on the epilogue's entry point instead (see
-// epilogue-orb.metal / epilogue-surface.metal). This file only defines the
-// portable-subset shims. See docs/shader-abi.md.
+// Declares the frozen four-channel uniform ABI as globals (GLSL reads
+// uniforms as globals) and the portable-subset shims. A field or compositor
+// body never declares a `uniform` itself — see docs/shader-abi.md.
+//
+// `#version` is the literal first line, with no leading comment or
+// whitespace before it — some real ES-profile front-ends (observed: the
+// glslang WASM build used to validate this file) reject a shader where the
+// version directive isn't the first thing in the source, even though a
+// leading comment is legal per some readings of the GLSL spec. Not worth
+// the risk on the one directive every target requires.
 
-#include <metal_stdlib>
-using namespace metal;
+precision highp float;
 
-// True modulo (result takes the sign of `y`). Metal's native `fmod` takes
-// the sign of `x` instead — e.g. fmod(-1.5, 6.0) == -1.5, not the 4.5 that
-// GLSL's mod(-1.5, 6.0) produces — and every field is centred on the
-// origin, so roughly half its domain hits exactly this disagreement. oMod
-// is defined identically in all three preambles so there is nothing to get
-// quietly wrong.
-inline float oMod(float x, float y) {
+uniform vec2 u_resolution;
+uniform float u_time;
+uniform float u_energy;
+uniform float u_coherence;
+uniform float u_warmth;
+uniform float u_pulse;
+
+out vec4 oFragColor;
+
+// True modulo (result takes the sign of `y`), defined explicitly rather than
+// delegated to GLSL's native `mod()` so all three targets are guaranteed to
+// agree bit-for-bit on the same formula rather than on assumed equivalence.
+float oMod(float x, float y) {
     return x - y * floor(x / y);
 }
 
-inline float2 oMod(float2 x, float2 y) {
+vec2 oMod(vec2 x, vec2 y) {
     return x - y * floor(x / y);
 }
 
-// Two-argument arctangent. Metal spells this `atan2(y, x)`, not `atan(y, x)`
-// — a naming difference from GLSL/SkSL, not a semantic one. The shim lets a
-// field call one name (`oAtan2`) regardless of which the target uses.
-inline float oAtan2(float y, float x) {
-    return atan2(y, x);
+// Two-argument arctangent. GLSL spells this as the two-argument form of
+// `atan`; the shim exists so a field can call one name across all three
+// targets, which disagree only on what that name is (see oAtan2 in
+// preamble.metal), not on the underlying semantics.
+float oAtan2(float y, float x) {
+    return atan(y, x);
 }
 
-// Motes — drifting points of light, with no hard edge of their own.
+// Ribbons — dotted bands that undulate across the plane.
 //
-// The other three shipped fields are continuous materials: interference
-// patterns, fabric folds, layered veils. This one is made of discrete points,
-// which is a different family of look — closer to dotted "thinking orb"
-// indicators than to a woven surface.
+// The reference for this family of look is the "thinking orb" indicator: an
+// orb built out of DOTS arranged on structure — rings, meridians, a
+// multi-band sash — rather than dots scattered at random. An earlier attempt
+// here (`motes`) placed one dot per lattice cell, which covers the plane
+// evenly and is therefore, visually, just noise. The structure is the point:
+// dots read as an object when they lie on paths.
 //
-// STRUCTURE: A CELL LATTICE, NOT A FIXED CLUSTER
+// WHY BANDS RATHER THAN RINGS
 //
-// The obvious way to draw N points is to hash N positions and loop over them.
-// That is wrong here. World space is unbounded, and a Surface reveals more of
-// it along its long axis (docs/shader-abi.md), so a fixed set of points near
-// the origin reads as a stranded cluster floating in emptiness — the exact
-// failure the world-space note warns about, and the same reason chladni.orb
-// dropped its bounded "plate".
+// The closest single reference is a ring that slowly morphs, and rings are
+// what a dotted orb usually is. But a ring is a CENTRED composition, and a
+// field here has to work as a `<Surface>` too — which reveals much more world
+// space along its long axis, stranding any centred motif in emptiness (the
+// failure docs/shader-abi.md warns about, and the reason chladni.orb dropped
+// its bounded "plate").
 //
-// Instead the plane is divided into cells, each cell owns exactly one mote,
-// and each pixel only examines its own cell plus the eight around it. That
-// covers the plane at any size or aspect AND bounds the per-pixel work by
-// construction, since a mote more than one cell away cannot reach this pixel.
-// The 3x3 neighbourhood is the same shape cellular-drift.orb used in the task
-// 3.5 ABI gate.
+// Bands solve it: they repeat across the plane, so a Surface shows a wavy
+// dotted texture that keeps going, while the orb compositor's mask crops the
+// same field to a disc where a handful of bands read as wrapping a sphere.
+// One field, honest on both shapes.
 //
-// COST: 9 cells x (1 hash for the mote's phase + 1 for its character) plus
-// trig per cell, so roughly 20 hashes per field() call — between chladni
-// (~3) and silk (~72), and far under veils (~700, which ships). Note
-// surface.orb calls field() five times per pixel, so a Surface pays ~100;
-// it renders once, and the animated orb's single call is the binding budget.
+// WHAT THIS DELIBERATELY DOES NOT DO
 //
-// Portable subset throughout: constant-bound `for` loops only, no arrays (so
-// no dynamic indexing), no `mod`/two-arg `atan`, no textures, no `discard`.
+// In the reference, dots bunch up toward the orb's edge because they are
+// projected onto a sphere. That cannot happen here, and not for want of
+// trying: `field()` receives only `p` and has no idea whether it is being
+// composited into a sphere or a full-bleed rectangle. Perspective is a
+// property of the SHAPE, and the two-function split (docs/shader-abi.md)
+// puts shape in `composite()`. The orb compositor's own Fresnel densification
+// supplies the sphere read instead.
+//
+// COST: 3 bands x 3 dot slots = 9 dot evaluations, plus 2 hashes each —
+// comparable to a 3x3 lattice, between chladni (~3 hashes) and silk (~72).
+// Portable subset throughout: constant-bound `for` loops, no arrays, no
+// `mod`/two-arg `atan`, no textures.
 
-float moteHash(float2 p) {
-    float3 p3 = fract(float3(p.xyx) * float3(0.1031, 0.1030, 0.0973));
+float ribbonHash(vec2 p) {
+    vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
     p3 += dot(p3, p3.yzx + 33.33);
     return fract((p3.x + p3.y) * p3.z);
 }
 
-// Where a cell's mote sits at time `clock`, in cell-local coordinates.
+// Vertical offset of band `band` at horizontal position `x`.
 //
-// Each mote travels its own small ellipse rather than drifting linearly:
-// linear drift would make the whole lattice visibly slide in one direction,
-// which reads as a scrolling texture instead of as motes hanging in space.
-float2 motePosition(float2 cell, float clock, float travel) {
-    float a = moteHash(cell) * 6.2831853;
-    float b = moteHash(cell + 41.7) * 6.2831853;
-    // Per-mote rate, so they do not orbit in lockstep.
-    float rate = 0.35 + 0.5 * moteHash(cell + 7.3);
-    return cell + 0.5 + float2(sin(a + clock * rate), cos(b + clock * rate * 0.8)) * travel;
+// Two sine terms at different frequencies rather than one: a single sine
+// reads as a regular corrugation, while two beating against each other give
+// the looser, hand-drawn wander the reference has.
+float ribbonWave(float x, float band, float clock, float amp) {
+    float phase = band * 1.7;
+    return amp * (sin(x * 1.7 + phase + clock * 0.55) * 0.65
+                + sin(x * 0.9 - phase * 0.6 + clock * 0.31) * 0.35);
 }
 
-float3 field(float2 p, float t, float energy, float coherence, float warmth, float pulse) {
+vec3 field(vec2 p, float t, float energy, float coherence, float warmth, float pulse) {
     // `t` already carries `pulse` and the component's `speed`
     // (docs/shader-abi.md); multiplying again would apply it twice.
     float clock = t;
 
     // THE SINGLE STRUCTURAL AXIS.
     //
-    // This field naturally wants several independent controls — how many
-    // motes, how large, how soft, how far they wander. The ABI provides one
-    // structural channel, so all four ride one hand-chosen curve, exactly the
-    // strain recorded in gate-3.5/findings.md. High coherence is an ordered
-    // sparse constellation of tight points; low coherence is a dense, soft,
-    // restless swarm. The combinations off that curve — "sparse and soft",
-    // "dense and tight" — are simply unreachable through this ABI, and that
-    // is a property of the contract, not an oversight here.
-    float density = mix(9.0, 4.5, coherence);
-    float moteSize = mix(0.30, 0.16, coherence);
-    float softness = mix(1.0, 0.45, coherence);
-    float travel = mix(0.42, 0.16, coherence);
+    // Band spacing, dot spacing, dot size and undulation amplitude are four
+    // separate ideas riding one `coherence` curve, because that is the only
+    // structural channel the frozen ABI provides (gate-3.5/findings.md). High
+    // coherence is calm, tightly-spaced, crisp bands; low coherence is loose,
+    // wide, restless ones. "Tight but restless" is unreachable, and that is a
+    // property of the contract rather than an oversight here.
+    float bandSpacing = mix(0.62, 0.34, coherence);
+    float dotSpacing = mix(0.30, 0.17, coherence);
+    float dotRadius = mix(0.085, 0.052, coherence);
+    float waveAmp = mix(0.30, 0.10, coherence);
 
-    float2 scaled = p * density;
-    float2 base = floor(scaled);
+    // Bands run along x and stack along y. Rotating the whole field slightly
+    // keeps them off the pixel grid, which stops the dots aliasing into
+    // visible rows on a Surface.
+    vec2 q = vec2(p.x * 0.94 - p.y * 0.34, p.x * 0.34 + p.y * 0.94);
 
+    float bandIndex = floor(q.y / bandSpacing);
     float glow = 0.0;
     float cores = 0.0;
 
     // Constant bounds: the portable subset forbids unbounded and `while`
-    // loops. A mote outside this neighbourhood cannot reach the pixel,
-    // because `travel` stays below half a cell.
-    for (int j = -1; j <= 1; j++) {
+    // loops. A band further than one spacing away cannot reach this pixel,
+    // because waveAmp stays below half a band.
+    for (int b = -1; b <= 1; b++) {
+        float band = bandIndex + float(b);
+        float slotIndex = floor(q.x / dotSpacing);
+
         for (int i = -1; i <= 1; i++) {
-            float2 cell = base + float2(float(i), float(j));
-            float2 pos = motePosition(cell, clock, travel);
-            float d = length(scaled - pos);
+            float slot = slotIndex + float(i);
 
-            // Per-mote size variation, so the field does not read as a
-            // regular grid of identical dots.
-            float character = moteHash(cell + 19.1);
-            float radius = moteSize * (0.55 + 0.9 * character);
+            // The dot's own x decides where its band sits, so dots ride the
+            // wave rather than being sampled off it.
+            float dotX = (slot + 0.5) * dotSpacing;
+            float dotY = (band + 0.5) * bandSpacing + ribbonWave(dotX, band, clock, waveAmp);
 
-            // Two-part falloff: a soft halo that overlaps its neighbours and
-            // gives the field its glow, plus a tighter core that keeps each
-            // mote legible as a point rather than dissolving into the haze.
-            glow += (1.0 - smoothstep(0.0, radius * (1.0 + softness * 2.2), d)) * 0.55;
-            cores += (1.0 - smoothstep(0.0, radius * 0.42, d)) * (0.5 + 0.5 * character);
+            float d = length(q - vec2(dotX, dotY));
+
+            // Per-dot size and brightness variation, so a band reads as
+            // hand-placed rather than as a printed dotted line.
+            float character = ribbonHash(vec2(slot, band));
+
+            // A brightness wave travelling ALONG the band is what makes the
+            // sash look like it is being drawn rather than merely wobbling.
+            float travel = 0.55 + 0.45 * sin(dotX * 2.1 - clock * 1.3 + band * 0.9);
+
+            float radius = dotRadius * (0.65 + 0.7 * character);
+            float weight = travel * (0.55 + 0.45 * character);
+
+            // Soft halo for the field's overall glow, plus a tighter core so
+            // each dot stays legible as a point instead of dissolving.
+            glow += (1.0 - smoothstep(0.0, radius * 3.0, d)) * 0.30 * weight;
+            cores += (1.0 - smoothstep(0.0, radius, d)) * weight;
         }
     }
 
     // Slow collective breathing, so a still frame and a moving one differ.
-    float breathe = 0.92 + 0.08 * sin(clock * 0.35);
+    float breathe = 0.90 + 0.10 * sin(clock * 0.4);
     glow *= breathe;
+    cores *= breathe;
 
-    float amplitude = mix(0.22, 1.0, energy);
+    float amplitude = mix(0.25, 1.0, energy);
 
-    // Warmth is authored, not remapped: no source field in this lineage has a
-    // native warmth concept (docs/shader-abi.md), so the palette is original
-    // work every time.
-    float3 cool = float3(0.30, 0.48, 0.78);
-    float3 warm = float3(0.88, 0.52, 0.26);
-    float3 tint = mix(cool, warm, warmth);
+    // Warmth is authored, not remapped: no field in this lineage has a native
+    // warmth concept (docs/shader-abi.md), so the palette is original work.
+    vec3 cool = vec3(0.34, 0.52, 0.82);
+    vec3 warm = vec3(0.90, 0.55, 0.28);
+    vec3 tint = mix(cool, warm, warmth);
 
-    // Cores are lifted toward white so the brightest points read as light
-    // rather than as saturated colour, while the halo carries the hue.
-    float3 col = tint * glow * 0.5 + mix(tint, float3(1.0), 0.55) * cores * 0.42;
+    // Cores lift toward white so the brightest dots read as light rather than
+    // as saturated colour — but only partway. Lifting them 60% of the way, as
+    // a first pass did, bleached the palette badly enough that a full warmth
+    // sweep moved the image by only 1.6/255: technically observable, visually
+    // nothing. At 0.3 the dots still read as light and warmth actually tells.
+    vec3 col = tint * glow * 0.8 + mix(tint, vec3(1.0), 0.3) * cores * 0.62;
     col *= amplitude;
 
     // Grain, matching the house convention in the other fields.
-    float grain = moteHash(p * 700.0 + clock * 11.0);
+    float grain = ribbonHash(p * 700.0 + clock * 11.0);
     col += (grain - 0.5) * 0.01;
 
     return clamp(col, 0.0, 1.0);
@@ -180,7 +213,7 @@ float3 field(float2 p, float t, float energy, float coherence, float warmth, flo
 // targets/epilogue-orb.glsl). composite()'s signature is frozen, so a
 // per-instance value could not reach this function anyway.
 //
-// Returns PREMULTIPLIED colour and alpha (`float4(rgb * a, a)`), per the
+// Returns PREMULTIPLIED colour and alpha (`vec4(rgb * a, a)`), per the
 // two-function contract in docs/shader-abi.md: `composite()` alone decides
 // visibility, so the orb composites over an arbitrary background without dark
 // fringing.
@@ -196,17 +229,17 @@ float3 field(float2 p, float t, float energy, float coherence, float warmth, flo
 // each axis while the corners reach ~0.707. A silhouette still carrying alpha
 // at 0.5 would be cut flat against the sides and continue into the corners —
 // a square halo rather than a round one.
-constant float ORB_RADIUS = 0.46;
+const float ORB_RADIUS = 0.46;
 
 // Width of the feather on the silhouette. Deliberately SMALL. The orb reads
 // as a sphere because of the z-curvature below, not because of a wide blur —
 // an earlier version widened this into a long ramp and the result read as fog
 // with no geometry to it.
-constant float ORB_LIMB_FEATHER = 0.035;
+const float ORB_LIMB_FEATHER = 0.035;
 
 // How transparent the orb is face-on. The limb always reaches full density,
 // so this is what makes the middle read as something you can see into.
-constant float ORB_CORE_ALPHA = 0.42;
+const float ORB_CORE_ALPHA = 0.42;
 
 // Falloff of the Fresnel term from limb to centre.
 //
@@ -215,10 +248,10 @@ constant float ORB_CORE_ALPHA = 0.42;
 // FLAT disc (alpha ~140/255 from centre to r=0.7) with a soft edge — the same
 // "no geometry" failure as the blur it replaced. At 1.2 the gradient spans
 // the face: ~107 at centre, ~124 at half radius, ~190 near the limb.
-constant float ORB_FRESNEL_POWER = 1.2;
+const float ORB_FRESNEL_POWER = 1.2;
 
-float4 composite(float2 p, float t, float energy, float coherence, float warmth, float pulse) {
-    float3 color = field(p, t, energy, coherence, warmth, pulse);
+vec4 composite(vec2 p, float t, float energy, float coherence, float warmth, float pulse) {
+    vec3 color = field(p, t, energy, coherence, warmth, pulse);
 
     float dist = length(p);
     float r = min(dist / ORB_RADIUS, 1.0);
@@ -246,26 +279,17 @@ float4 composite(float2 p, float t, float energy, float coherence, float warmth,
 
     float alpha = density * silhouette;
 
-    return float4(color * alpha, alpha);
+    return vec4(color * alpha, alpha);
 }
 
 
-// Orbic epilogue — orb shape, Metal Shading Language ([[stitchable]]).
+// Orbic epilogue — orb shape, GLSL ES 3.00.
 //
-// Maps the fragment position into aspect-preserving world space at orb
-// scale (p spans roughly a unit disc — see docs/shader-abi.md) and calls the
-// compositor. Unlike the GLSL/SkSL epilogues, this one also carries the
-// entire uniform ABI as explicit function arguments, because a
-// [[stitchable]] function has no global uniform storage to read from (see
-// preamble.metal). `time` is assumed already wrapped (at 3600 s) by the
-// caller.
-//
-// The compositor returns `float4` — the narrowing cast to `half4` here, not
-// inside the shared core, is deliberate: it keeps the shared field and
-// compositor math in float precision and only narrows at the platform
-// boundary that actually demands `half`. Note this file is hand-written Metal
-// and is NOT run through the build's type-alias table, so it spells its types
-// natively.
+// Maps the fragment coordinate into aspect-preserving world space at orb
+// scale (p spans roughly a unit disc — see docs/shader-abi.md) and calls
+// the compositor. `u_time` is assumed already wrapped (at 3600 s) by the
+// caller before being written to this uniform; the epilogue does no
+// per-pixel wrapping of its own.
 //
 // `edge` and `backlight` are orb-specific — NOT part of the frozen
 // four-channel ABI, which field()/composite() alone see. They are the Orb
@@ -297,42 +321,31 @@ float4 composite(float2 p, float t, float energy, float coherence, float warmth,
 // Both read ORB_RADIUS and ORB_LIMB_FEATHER straight from the compositor: the
 // build concatenates preamble + field + compositor + epilogue into a single
 // translation unit, so its program-scope constants are in scope here.
-//
-// `edge` and `backlight` trail the four channels as the 9th and 10th
-// parameters, mirroring how `scale` trails on orbicSurface.
 
-constant float ORB_SCALE = 1.0;
+uniform float u_edge;
+uniform float u_backlight;
+
+const float ORB_SCALE = 1.0;
 
 // Feather-coordinate window the sharpened silhouette uses. Narrower than the
 // compositor's full 0..1 sweep, which is what makes the limb tighter.
-constant float ORB_EDGE_SHARP_LO = 0.40;
-constant float ORB_EDGE_SHARP_HI = 0.62;
+const float ORB_EDGE_SHARP_LO = 0.40;
+const float ORB_EDGE_SHARP_HI = 0.62;
 
 // How far past the silhouette the backlit halo reaches, in world units.
-constant float ORB_HALO_WIDTH = 0.035;
+const float ORB_HALO_WIDTH = 0.035;
 // Concentration of the backlight on the limb. Higher hugs the edge tighter.
-constant float ORB_BACKLIGHT_POWER = 2.2;
+const float ORB_BACKLIGHT_POWER = 2.2;
 
-[[ stitchable ]] half4 orbicOrb(
-    float2 position,
-    half4 color,
-    float2 resolution,
-    float time,
-    float energy,
-    float coherence,
-    float warmth,
-    float pulse,
-    float edge,
-    float backlight
-) {
-    float2 p = (position - 0.5 * resolution) / min(resolution.x, resolution.y) * ORB_SCALE;
-    float4 composited = composite(p, time, energy, coherence, warmth, pulse);
+void main() {
+    vec2 p = (gl_FragCoord.xy - 0.5 * u_resolution) / min(u_resolution.x, u_resolution.y) * ORB_SCALE;
+    vec4 composited = composite(p, u_time, u_energy, u_coherence, u_warmth, u_pulse);
 
     // composite() returns PREMULTIPLIED colour, so recover the straight colour
     // before touching alpha — otherwise every adjustment below would darken it
     // as a side effect. At alpha 0 the numerator is 0 too, so the guarded
     // divide yields 0 rather than a NaN.
-    float3 straight = composited.rgb / max(composited.a, 1e-5);
+    vec3 straight = composited.rgb / max(composited.a, 1e-5);
 
     float dist = length(p);
 
@@ -345,7 +358,7 @@ constant float ORB_BACKLIGHT_POWER = 2.2;
 
     // Ratio, not replacement: interior pixels have u = 0, where both curves
     // are 1, so they pass through completely unchanged at any `edge`.
-    float silhouetteScale = mix(1.0, sharpSilhouette / max(baseSilhouette, 1e-4), edge);
+    float silhouetteScale = mix(1.0, sharpSilhouette / max(baseSilhouette, 1e-4), u_edge);
     float alpha = clamp(composited.a * silhouetteScale, 0.0, 1.0);
 
     // Rear lighting: `limb` peaks where the sphere turns away from the viewer,
@@ -354,17 +367,17 @@ constant float ORB_BACKLIGHT_POWER = 2.2;
     float z = sqrt(max(1.0 - r * r, 0.0));
     float limb = pow(1.0 - z, ORB_BACKLIGHT_POWER);
     float halo = 1.0 - smoothstep(ORB_RADIUS, ORB_RADIUS + ORB_HALO_WIDTH, dist);
-    float glow = backlight * limb * halo;
+    float glow = u_backlight * limb * halo;
 
     // Lifted toward white only slightly, so a strong backlight warms the limb
     // rather than bleaching it.
-    float3 glowColor = mix(straight, float3(1.0), 0.35);
+    vec3 glowColor = mix(straight, vec3(1.0), 0.35);
 
     // Composited UNDER the orb: the glow supplies its own alpha, which is what
     // lets it exist just outside the body instead of merely brightening pixels
     // the orb already covers.
     float outAlpha = clamp(alpha + glow * (1.0 - alpha), 0.0, 1.0);
-    float3 outColor = (straight * alpha + glowColor * glow * (1.0 - alpha)) / max(outAlpha, 1e-5);
+    vec3 outColor = (straight * alpha + glowColor * glow * (1.0 - alpha)) / max(outAlpha, 1e-5);
 
-    return half4(float4(outColor * outAlpha, outAlpha));
+    oFragColor = vec4(outColor * outAlpha, outAlpha);
 }

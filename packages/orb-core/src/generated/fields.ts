@@ -7,7 +7,7 @@
 export const FIELD_NAMES = [
   'chladni',
   'flat-color',
-  'motes',
+  'ribbons',
   'silk',
   'veils',
 ] as const;

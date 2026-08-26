@@ -65,7 +65,7 @@ Per-field shader payload, measured on the generated modules:
 | Field | Raw | Gzipped |
 |---|---|---|
 | chladni | 35.2 kB | 10.3 kB |
-| motes | 33.3 kB | 10.1 kB |
+| ribbons | 35.2 kB | 10.5 kB |
 | silk | 48.5 kB | 12.3 kB |
 | veils | 43.4 kB | 11.9 kB |
 | flat-color (placeholder) | 23.0 kB | 8.0 kB |

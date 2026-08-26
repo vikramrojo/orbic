@@ -30,55 +30,59 @@ inline float oAtan2(float y, float x) {
     return atan2(y, x);
 }
 
-// Motes — drifting points of light, with no hard edge of their own.
+// Ribbons — dotted bands that undulate across the plane.
 //
-// The other three shipped fields are continuous materials: interference
-// patterns, fabric folds, layered veils. This one is made of discrete points,
-// which is a different family of look — closer to dotted "thinking orb"
-// indicators than to a woven surface.
+// The reference for this family of look is the "thinking orb" indicator: an
+// orb built out of DOTS arranged on structure — rings, meridians, a
+// multi-band sash — rather than dots scattered at random. An earlier attempt
+// here (`motes`) placed one dot per lattice cell, which covers the plane
+// evenly and is therefore, visually, just noise. The structure is the point:
+// dots read as an object when they lie on paths.
 //
-// STRUCTURE: A CELL LATTICE, NOT A FIXED CLUSTER
+// WHY BANDS RATHER THAN RINGS
 //
-// The obvious way to draw N points is to hash N positions and loop over them.
-// That is wrong here. World space is unbounded, and a Surface reveals more of
-// it along its long axis (docs/shader-abi.md), so a fixed set of points near
-// the origin reads as a stranded cluster floating in emptiness — the exact
-// failure the world-space note warns about, and the same reason chladni.orb
-// dropped its bounded "plate".
+// The closest single reference is a ring that slowly morphs, and rings are
+// what a dotted orb usually is. But a ring is a CENTRED composition, and a
+// field here has to work as a `<Surface>` too — which reveals much more world
+// space along its long axis, stranding any centred motif in emptiness (the
+// failure docs/shader-abi.md warns about, and the reason chladni.orb dropped
+// its bounded "plate").
 //
-// Instead the plane is divided into cells, each cell owns exactly one mote,
-// and each pixel only examines its own cell plus the eight around it. That
-// covers the plane at any size or aspect AND bounds the per-pixel work by
-// construction, since a mote more than one cell away cannot reach this pixel.
-// The 3x3 neighbourhood is the same shape cellular-drift.orb used in the task
-// 3.5 ABI gate.
+// Bands solve it: they repeat across the plane, so a Surface shows a wavy
+// dotted texture that keeps going, while the orb compositor's mask crops the
+// same field to a disc where a handful of bands read as wrapping a sphere.
+// One field, honest on both shapes.
 //
-// COST: 9 cells x (1 hash for the mote's phase + 1 for its character) plus
-// trig per cell, so roughly 20 hashes per field() call — between chladni
-// (~3) and silk (~72), and far under veils (~700, which ships). Note
-// surface.orb calls field() five times per pixel, so a Surface pays ~100;
-// it renders once, and the animated orb's single call is the binding budget.
+// WHAT THIS DELIBERATELY DOES NOT DO
 //
-// Portable subset throughout: constant-bound `for` loops only, no arrays (so
-// no dynamic indexing), no `mod`/two-arg `atan`, no textures, no `discard`.
+// In the reference, dots bunch up toward the orb's edge because they are
+// projected onto a sphere. That cannot happen here, and not for want of
+// trying: `field()` receives only `p` and has no idea whether it is being
+// composited into a sphere or a full-bleed rectangle. Perspective is a
+// property of the SHAPE, and the two-function split (docs/shader-abi.md)
+// puts shape in `composite()`. The orb compositor's own Fresnel densification
+// supplies the sphere read instead.
+//
+// COST: 3 bands x 3 dot slots = 9 dot evaluations, plus 2 hashes each —
+// comparable to a 3x3 lattice, between chladni (~3 hashes) and silk (~72).
+// Portable subset throughout: constant-bound `for` loops, no arrays, no
+// `mod`/two-arg `atan`, no textures.
 
-float moteHash(float2 p) {
+float ribbonHash(float2 p) {
     float3 p3 = fract(float3(p.xyx) * float3(0.1031, 0.1030, 0.0973));
     p3 += dot(p3, p3.yzx + 33.33);
     return fract((p3.x + p3.y) * p3.z);
 }
 
-// Where a cell's mote sits at time `clock`, in cell-local coordinates.
+// Vertical offset of band `band` at horizontal position `x`.
 //
-// Each mote travels its own small ellipse rather than drifting linearly:
-// linear drift would make the whole lattice visibly slide in one direction,
-// which reads as a scrolling texture instead of as motes hanging in space.
-float2 motePosition(float2 cell, float clock, float travel) {
-    float a = moteHash(cell) * 6.2831853;
-    float b = moteHash(cell + 41.7) * 6.2831853;
-    // Per-mote rate, so they do not orbit in lockstep.
-    float rate = 0.35 + 0.5 * moteHash(cell + 7.3);
-    return cell + 0.5 + float2(sin(a + clock * rate), cos(b + clock * rate * 0.8)) * travel;
+// Two sine terms at different frequencies rather than one: a single sine
+// reads as a regular corrugation, while two beating against each other give
+// the looser, hand-drawn wander the reference has.
+float ribbonWave(float x, float band, float clock, float amp) {
+    float phase = band * 1.7;
+    return amp * (sin(x * 1.7 + phase + clock * 0.55) * 0.65
+                + sin(x * 0.9 - phase * 0.6 + clock * 0.31) * 0.35);
 }
 
 float3 field(float2 p, float t, float energy, float coherence, float warmth, float pulse) {
@@ -88,67 +92,84 @@ float3 field(float2 p, float t, float energy, float coherence, float warmth, flo
 
     // THE SINGLE STRUCTURAL AXIS.
     //
-    // This field naturally wants several independent controls — how many
-    // motes, how large, how soft, how far they wander. The ABI provides one
-    // structural channel, so all four ride one hand-chosen curve, exactly the
-    // strain recorded in gate-3.5/findings.md. High coherence is an ordered
-    // sparse constellation of tight points; low coherence is a dense, soft,
-    // restless swarm. The combinations off that curve — "sparse and soft",
-    // "dense and tight" — are simply unreachable through this ABI, and that
-    // is a property of the contract, not an oversight here.
-    float density = mix(9.0, 4.5, coherence);
-    float moteSize = mix(0.30, 0.16, coherence);
-    float softness = mix(1.0, 0.45, coherence);
-    float travel = mix(0.42, 0.16, coherence);
+    // Band spacing, dot spacing, dot size and undulation amplitude are four
+    // separate ideas riding one `coherence` curve, because that is the only
+    // structural channel the frozen ABI provides (gate-3.5/findings.md). High
+    // coherence is calm, tightly-spaced, crisp bands; low coherence is loose,
+    // wide, restless ones. "Tight but restless" is unreachable, and that is a
+    // property of the contract rather than an oversight here.
+    float bandSpacing = mix(0.62, 0.34, coherence);
+    float dotSpacing = mix(0.30, 0.17, coherence);
+    float dotRadius = mix(0.085, 0.052, coherence);
+    float waveAmp = mix(0.30, 0.10, coherence);
 
-    float2 scaled = p * density;
-    float2 base = floor(scaled);
+    // Bands run along x and stack along y. Rotating the whole field slightly
+    // keeps them off the pixel grid, which stops the dots aliasing into
+    // visible rows on a Surface.
+    float2 q = float2(p.x * 0.94 - p.y * 0.34, p.x * 0.34 + p.y * 0.94);
 
+    float bandIndex = floor(q.y / bandSpacing);
     float glow = 0.0;
     float cores = 0.0;
 
     // Constant bounds: the portable subset forbids unbounded and `while`
-    // loops. A mote outside this neighbourhood cannot reach the pixel,
-    // because `travel` stays below half a cell.
-    for (int j = -1; j <= 1; j++) {
+    // loops. A band further than one spacing away cannot reach this pixel,
+    // because waveAmp stays below half a band.
+    for (int b = -1; b <= 1; b++) {
+        float band = bandIndex + float(b);
+        float slotIndex = floor(q.x / dotSpacing);
+
         for (int i = -1; i <= 1; i++) {
-            float2 cell = base + float2(float(i), float(j));
-            float2 pos = motePosition(cell, clock, travel);
-            float d = length(scaled - pos);
+            float slot = slotIndex + float(i);
 
-            // Per-mote size variation, so the field does not read as a
-            // regular grid of identical dots.
-            float character = moteHash(cell + 19.1);
-            float radius = moteSize * (0.55 + 0.9 * character);
+            // The dot's own x decides where its band sits, so dots ride the
+            // wave rather than being sampled off it.
+            float dotX = (slot + 0.5) * dotSpacing;
+            float dotY = (band + 0.5) * bandSpacing + ribbonWave(dotX, band, clock, waveAmp);
 
-            // Two-part falloff: a soft halo that overlaps its neighbours and
-            // gives the field its glow, plus a tighter core that keeps each
-            // mote legible as a point rather than dissolving into the haze.
-            glow += (1.0 - smoothstep(0.0, radius * (1.0 + softness * 2.2), d)) * 0.55;
-            cores += (1.0 - smoothstep(0.0, radius * 0.42, d)) * (0.5 + 0.5 * character);
+            float d = length(q - float2(dotX, dotY));
+
+            // Per-dot size and brightness variation, so a band reads as
+            // hand-placed rather than as a printed dotted line.
+            float character = ribbonHash(float2(slot, band));
+
+            // A brightness wave travelling ALONG the band is what makes the
+            // sash look like it is being drawn rather than merely wobbling.
+            float travel = 0.55 + 0.45 * sin(dotX * 2.1 - clock * 1.3 + band * 0.9);
+
+            float radius = dotRadius * (0.65 + 0.7 * character);
+            float weight = travel * (0.55 + 0.45 * character);
+
+            // Soft halo for the field's overall glow, plus a tighter core so
+            // each dot stays legible as a point instead of dissolving.
+            glow += (1.0 - smoothstep(0.0, radius * 3.0, d)) * 0.30 * weight;
+            cores += (1.0 - smoothstep(0.0, radius, d)) * weight;
         }
     }
 
     // Slow collective breathing, so a still frame and a moving one differ.
-    float breathe = 0.92 + 0.08 * sin(clock * 0.35);
+    float breathe = 0.90 + 0.10 * sin(clock * 0.4);
     glow *= breathe;
+    cores *= breathe;
 
-    float amplitude = mix(0.22, 1.0, energy);
+    float amplitude = mix(0.25, 1.0, energy);
 
-    // Warmth is authored, not remapped: no source field in this lineage has a
-    // native warmth concept (docs/shader-abi.md), so the palette is original
-    // work every time.
-    float3 cool = float3(0.30, 0.48, 0.78);
-    float3 warm = float3(0.88, 0.52, 0.26);
+    // Warmth is authored, not remapped: no field in this lineage has a native
+    // warmth concept (docs/shader-abi.md), so the palette is original work.
+    float3 cool = float3(0.34, 0.52, 0.82);
+    float3 warm = float3(0.90, 0.55, 0.28);
     float3 tint = mix(cool, warm, warmth);
 
-    // Cores are lifted toward white so the brightest points read as light
-    // rather than as saturated colour, while the halo carries the hue.
-    float3 col = tint * glow * 0.5 + mix(tint, float3(1.0), 0.55) * cores * 0.42;
+    // Cores lift toward white so the brightest dots read as light rather than
+    // as saturated colour — but only partway. Lifting them 60% of the way, as
+    // a first pass did, bleached the palette badly enough that a full warmth
+    // sweep moved the image by only 1.6/255: technically observable, visually
+    // nothing. At 0.3 the dots still read as light and warmth actually tells.
+    float3 col = tint * glow * 0.8 + mix(tint, float3(1.0), 0.3) * cores * 0.62;
     col *= amplitude;
 
     // Grain, matching the house convention in the other fields.
-    float grain = moteHash(p * 700.0 + clock * 11.0);
+    float grain = ribbonHash(p * 700.0 + clock * 11.0);
     col += (grain - 0.5) * 0.01;
 
     return clamp(col, 0.0, 1.0);

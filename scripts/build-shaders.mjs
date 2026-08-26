@@ -8,7 +8,7 @@
 // preamble/epilogue (which are hand-authored natively and need no
 // aliasing).
 
-import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { lintShaderSource, stripComments } from './lint-shader.mjs';
@@ -190,6 +190,35 @@ export type FieldName = keyof typeof FIELD_SHADERS;
 }
 
 /**
+ * Removes generated files belonging to fields that no longer exist.
+ *
+ * Without this, deleting a `.orb` leaves its artifacts behind forever: they
+ * are not regenerated, so nothing overwrites them, and they keep being served
+ * to any consumer that imports them by name. `scripts/build-metallibs.mjs`
+ * already clears its output directories for the same reason — this closes the
+ * same hole on the text artifacts. Adding a field and REMOVING one both have
+ * to work for the pipeline to take an arbitrary set.
+ */
+function pruneStale(dir, keep, matches) {
+  let entries;
+  try {
+    entries = readdirSync(dir);
+  } catch {
+    return [];
+  }
+
+  const removed = [];
+  for (const entry of entries) {
+    const field = matches(entry);
+    if (field !== null && !keep.has(field)) {
+      rmSync(resolve(dir, entry), { force: true });
+      removed.push(entry);
+    }
+  }
+  return removed;
+}
+
+/**
  * Writes ONE MODULE PER FIELD, plus a barrel that re-exports them.
  *
  * The single `FIELD_SHADERS` object this replaced could not be tree-shaken:
@@ -204,6 +233,11 @@ export type FieldName = keyof typeof FIELD_SHADERS;
  */
 export function writePerFieldShaderModules(fieldsToArtifacts, outDir, target, label) {
   const names = Object.keys(fieldsToArtifacts);
+  const keep = new Set(names);
+
+  pruneStale(resolve(outDir, 'fields'), keep, (entry) =>
+    entry.endsWith('.ts') ? entry.replace(/\.ts$/, '') : null
+  );
 
   for (const [fieldName, artifacts] of Object.entries(fieldsToArtifacts)) {
     const orb = artifacts.find((a) => a.shape === 'orb' && a.target === target).content;
@@ -398,6 +432,21 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
     writePerFieldShaderModules(fieldsToArtifacts, dirname(webOutPath), 'glsl', 'GLSL');
     console.log(`Wrote ${Object.keys(fieldsToArtifacts).length} per-field GLSL module(s) to ${dirname(webOutPath)}/fields`);
+
+    // Reference artifacts and the Swift Metal sources are written per field
+    // too, so they need the same prune — a deleted field would otherwise keep
+    // a .metal in Sources/, which build-metallibs.mjs globs and would happily
+    // keep compiling into a shipped resource.
+    const keep = new Set(Object.keys(fieldsToArtifacts));
+    const artifactField = (entry) => {
+      const m = entry.match(/^(.*)-(orb|surface)\.(glsl|sksl|metal)$/);
+      return m ? m[1] : null;
+    };
+    const prunedGenerated = pruneStale(outDir, keep, artifactField);
+    const prunedMetal = pruneStale(metalOutDir, keep, artifactField);
+    for (const f of [...prunedGenerated, ...prunedMetal]) {
+      console.log(`Removed stale artifact ${f}`);
+    }
 
     writeCoreFieldNames(fieldsToArtifacts, coreFieldsOutPath);
     console.log(`Wrote ${Object.keys(fieldsToArtifacts).length} field name(s) to ${coreFieldsOutPath}`);

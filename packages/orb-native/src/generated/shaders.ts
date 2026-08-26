@@ -7,14 +7,14 @@
 
 import * as chladni from './fields/chladni.js';
 import * as flat_color from './fields/flat-color.js';
-import * as motes from './fields/motes.js';
+import * as ribbons from './fields/ribbons.js';
 import * as silk from './fields/silk.js';
 import * as veils from './fields/veils.js';
 
 export const FIELD_SHADERS = {
   'chladni': chladni,
   'flat-color': flat_color,
-  'motes': motes,
+  'ribbons': ribbons,
   'silk': silk,
   'veils': veils,
 } as const;
