@@ -9,7 +9,10 @@ public enum OrbicFields {
     /// "first shipped field" for an unknown name.
     public static let all: [String] = [
         "chladni",
+        "contour",
+        "dither",
         "flat-color",
+        "moire",
         "ribbons",
         "silk",
         "veils",

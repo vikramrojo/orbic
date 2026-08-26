@@ -1,0 +1,97 @@
+// Moire — two line gratings beating into wide interference bands.
+//
+// The most rigidly geometric of the band fields. Where `contour` bands wander
+// organically and `ribbons` places dots along paths, this is pure
+// interference: two sets of straight lines at slightly different frequencies
+// and angles, whose product produces bands far wider than either grating.
+//
+// That width is the whole effect and it is worth being precise about, because
+// it is easy to build by accident and hard to build on purpose. Two gratings
+// at frequencies f1 and f2 beat at |f1 - f2|, so the visible band spacing is
+// set by the DIFFERENCE, not by either frequency. Small differences give
+// enormous slow bands; large ones collapse back into visible hatching. The
+// coherence curve below moves along exactly that axis.
+//
+// WHY THE ANGLE IS SMALL
+//
+// Rotating one grating by a large angle produces a cross-hatch rather than a
+// beat. The interference reads as bands only while the two are near-parallel,
+// so the angular offset stays small and the frequency difference does the
+// work.
+//
+// Gratings cover the plane by construction, so this satisfies the "extended
+// material, not centred artwork" requirement in docs/shader-abi.md without
+// special handling. It is also the cheapest field in the set — no noise at
+// all, just four trig calls plus grain.
+//
+// COST: ~4 sin/cos and 1 hash per field() call — cheaper than chladni (~3
+// hashes + 16 trig).
+
+float moireHash(vec2 p) {
+    vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
+}
+
+/// A single grating: parallel lines of unit period along `dir`, in 0..1.
+float moireGrating(vec2 p, vec2 dir, float freq, float phase) {
+    return 0.5 + 0.5 * sin(dot(p, dir) * freq + phase);
+}
+
+vec3 field(vec2 p, float t, float energy, float coherence, float warmth, float pulse) {
+    // `t` already carries `pulse` and the component's `speed`
+    // (docs/shader-abi.md); multiplying again would apply it twice.
+    float clock = t;
+
+    // THE SINGLE STRUCTURAL AXIS.
+    //
+    // Base frequency, frequency difference and angular offset are three ideas
+    // riding one `coherence` curve, because that is the only structural
+    // channel the frozen ABI provides (gate-3.5/findings.md). High coherence
+    // is a fine dense grating beating into broad calm bands; low coherence is
+    // a coarse grating with a larger difference, so the bands themselves get
+    // busy. "Fine grating, busy bands" is unreachable.
+    float baseFreq = mix(26.0, 52.0, coherence);
+    // The beat frequency, and therefore the visible band width — see header.
+    float freqDelta = mix(3.4, 1.1, coherence);
+    float angle = mix(0.16, 0.05, coherence);
+
+    // Both gratings rotate slowly and in opposite directions, so the
+    // interference pattern drifts across the field rather than pulsing in
+    // place.
+    float aRot = clock * 0.035;
+    float bRot = -clock * 0.028 + angle;
+
+    vec2 dirA = vec2(cos(aRot), sin(aRot));
+    vec2 dirB = vec2(cos(bRot), sin(bRot));
+
+    float gratingA = moireGrating(p, dirA, baseFreq, clock * 0.35);
+    float gratingB = moireGrating(p, dirB, baseFreq + freqDelta, -clock * 0.27);
+
+    // The product is the interference: bright only where both gratings are
+    // bright, which happens on the beat period rather than the grating period.
+    float interference = gratingA * gratingB;
+
+    // Lift the wide beat envelope out of the fine hatching, so the bands read
+    // as the subject and the gratings as their texture rather than the other
+    // way round.
+    float envelope = smoothstep(0.18, 0.82, interference);
+    float fine = interference;
+
+    float amplitude = mix(0.26, 1.0, energy);
+
+    // Warmth is authored, not remapped: no field in this lineage has a native
+    // warmth concept (docs/shader-abi.md), so the palette is original work.
+    vec3 cool = vec3(0.32, 0.49, 0.79);
+    vec3 warm = vec3(0.87, 0.53, 0.25);
+    vec3 tint = mix(cool, warm, warmth);
+
+    vec3 col = tint * envelope * 0.5 + mix(tint, vec3(1.0), 0.28) * fine * 0.22;
+    col *= amplitude;
+
+    // Grain, matching the house convention in the other fields.
+    float grain = moireHash(p * 700.0 + clock * 11.0);
+    col += (grain - 0.5) * 0.01;
+
+    return clamp(col, 0.0, 1.0);
+}

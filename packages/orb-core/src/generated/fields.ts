@@ -6,7 +6,10 @@
 /** Every field shipped with this build, in a deterministic (sorted) order. */
 export const FIELD_NAMES = [
   'chladni',
+  'contour',
+  'dither',
   'flat-color',
+  'moire',
   'ribbons',
   'silk',
   'veils',

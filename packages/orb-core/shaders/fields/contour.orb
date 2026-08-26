@@ -1,0 +1,118 @@
+// Contour — iso-bands of a slow height field, like a topographic map.
+//
+// True bands, but organic ones: the lines are level sets of a drifting fbm
+// surface, so they flow, pinch and merge the way contour lines on a map do,
+// rather than marching in parallel. That is what distinguishes this from
+// `moire` (rigid geometric interference) and from `ribbons` (dots arranged on
+// paths) — the three are deliberately different answers to "bands", because
+// brand-unity-check compares each field against its neighbours in sorted order
+// and near-duplicates would fail it.
+//
+// WHY LEVEL SETS RATHER THAN STRIPES
+//
+// `fract(height * N)` alone gives a sawtooth that reads as hard terracing. The
+// band EDGE is the interesting part, so the sawtooth is folded to a distance-
+// to-nearest-edge and drawn as a line. Folding also makes the line width
+// controllable independently of the band spacing, which is what lets a single
+// `coherence` curve move from wide soft terraces to fine crisp lines.
+//
+// Bands cover the plane by construction — a height field is defined
+// everywhere — so this satisfies the "extended material, not centred artwork"
+// requirement in docs/shader-abi.md without any special handling.
+//
+// COST: 4 fbm octaves x 4 hashes = ~16 hashes plus a warp lookup, so roughly
+// 20 hashes per field() call. Between chladni (~3) and silk (~72), far under
+// veils (~700, which ships).
+
+float contourHash(vec2 p) {
+    vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
+}
+
+float contourNoise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    float a = contourHash(i);
+    float b = contourHash(i + vec2(1.0, 0.0));
+    float c = contourHash(i + vec2(0.0, 1.0));
+    float d = contourHash(i + vec2(1.0, 1.0));
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+const int CONTOUR_OCTAVES = 4;
+
+float contourHeight(vec2 p, float clock) {
+    float total = 0.0;
+    float amp = 0.5;
+    float freq = 1.0;
+
+    // Constant bound: the portable subset forbids unbounded and `while` loops.
+    for (int i = 0; i < CONTOUR_OCTAVES; i++) {
+        // Each octave drifts at its own rate, so the surface evolves rather
+        // than sliding as a rigid whole.
+        total += contourNoise(p * freq + vec2(clock * 0.05 * freq, clock * -0.04 * freq)) * amp;
+        freq *= 2.02;
+        amp *= 0.5;
+    }
+    return total;
+}
+
+vec3 field(vec2 p, float t, float energy, float coherence, float warmth, float pulse) {
+    // `t` already carries `pulse` and the component's `speed`
+    // (docs/shader-abi.md); multiplying again would apply it twice.
+    float clock = t;
+
+    // THE SINGLE STRUCTURAL AXIS.
+    //
+    // Band count, line width and the domain warp are three ideas riding one
+    // `coherence` curve, because that is the only structural channel the
+    // frozen ABI provides (gate-3.5/findings.md). High coherence is many fine
+    // crisp lines over a calm surface; low coherence is few wide soft terraces
+    // over a churned one. "Few but crisp" is unreachable.
+    float bandCount = mix(5.0, 14.0, coherence);
+    float lineWidth = mix(0.42, 0.16, coherence);
+    float warpAmount = mix(0.55, 0.12, coherence);
+
+    // Warping the domain before measuring height is what makes the contours
+    // wander instead of forming concentric rings around noise maxima.
+    vec2 warp = vec2(
+        contourHeight(p * 0.7 + vec2(1.7, 9.2), clock * 0.5),
+        contourHeight(p * 0.7 + vec2(8.3, 2.8), clock * 0.5)
+    );
+    float height = contourHeight(p * 1.6 + warp * warpAmount, clock);
+
+    // Fold the sawtooth to a signed distance from the nearest band edge, so
+    // line width is independent of band spacing.
+    float banded = fract(height * bandCount);
+    float edge = abs(banded - 0.5) * 2.0;
+
+    // The line itself, plus a wider soft bloom so bands read as glowing rather
+    // than as ink.
+    float line = 1.0 - smoothstep(0.0, lineWidth, edge);
+    float bloom = 1.0 - smoothstep(0.0, min(lineWidth * 3.2, 1.0), edge);
+
+    // Which band this pixel is in, used to vary tone across the surface so a
+    // wide Surface does not read as one flat repeating texture.
+    float bandIndex = floor(height * bandCount);
+    float terrace = 0.5 + 0.5 * sin(bandIndex * 1.3 + clock * 0.25);
+
+    float amplitude = mix(0.28, 1.0, energy);
+
+    // Warmth is authored, not remapped: no field in this lineage has a native
+    // warmth concept (docs/shader-abi.md), so the palette is original work.
+    vec3 cool = vec3(0.28, 0.50, 0.80);
+    vec3 warm = vec3(0.88, 0.54, 0.24);
+    vec3 tint = mix(cool, warm, warmth);
+
+    vec3 col = tint * bloom * 0.22
+             + mix(tint, vec3(1.0), 0.3) * line * (0.45 + 0.35 * terrace);
+    col *= amplitude;
+
+    // Grain, matching the house convention in the other fields.
+    float grain = contourHash(p * 700.0 + clock * 11.0);
+    col += (grain - 0.5) * 0.01;
+
+    return clamp(col, 0.0, 1.0);
+}

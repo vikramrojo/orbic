@@ -11,7 +11,14 @@ import XCTest
 /// on a device — the failure mode that made the "program scope variable must
 /// reside in constant address space" bug invisible for so long.
 final class ShaderLibraryTests: XCTestCase {
-    private let fields = ["chladni", "silk", "veils", "flat-color"]
+    /// Driven from the generated list, NOT a hand-written literal.
+    ///
+    /// This was `["chladni", "silk", "veils", "flat-color"]` and had silently
+    /// gone stale: `ribbons` shipped without its metallibs ever being verified
+    /// on Swift, and nothing detected the omission because the test only ever
+    /// checked the fields it already knew about. A hardcoded list here can
+    /// only ever under-report.
+    private var fields: [String] { OrbicFields.all }
 
     func testEveryFieldAndShapeHasAPrebuiltLibrary() {
         for field in fields {

@@ -98,9 +98,9 @@ describe('per-field entry points (task 10.1)', () => {
       `),
     ]);
 
-    // Not an arbitrary threshold: four of five fields' sources are the
-    // difference, so anything close to parity means tree-shaking silently
-    // stopped working.
+    // Not an arbitrary threshold: every field but one is the difference, so
+    // anything close to parity means tree-shaking silently stopped working.
+    // The margin widens as fields are added, so this stays valid.
     expect(oneField.length).toBeLessThan(allFields.length * 0.65);
   }, 90_000);
 
@@ -137,7 +137,7 @@ describe('bundle size (task 10.2)', () => {
     // Printed, not asserted: these are measurements, and pinning them would
     // turn every shader edit into a failing test.
     console.log(
-      `[bundle size] minified ESM, react external — one field: ${kb(oneField)} kB, all five: ${kb(allFields)} kB`
+      `[bundle size] minified ESM, react external — one field: ${kb(oneField)} kB, all fields: ${kb(allFields)} kB`
     );
 
     expect(oneField.length).toBeGreaterThan(0);

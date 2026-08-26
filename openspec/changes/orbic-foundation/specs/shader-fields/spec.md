@@ -1,8 +1,20 @@
 ## ADDED Requirements
 
-### Requirement: Three built-in fields ship in v1
+### Requirement: The built-in field set is open, not fixed
 
-The library SHALL ship three selectable built-in fields: Chladni Resonance, Silk Cascade, and Shifting Veils. No bespoke brand field SHALL be authored for v1. A Phyllotaxis field SHALL NOT ship in v1.
+The library SHALL ship a set of selectable built-in fields, enumerated by the build rather than fixed by this spec. No bespoke brand field SHALL be authored for v1. A Phyllotaxis field SHALL NOT ship in v1.
+
+This requirement previously pinned the set at exactly three — Chladni Resonance, Silk Cascade and Shifting Veils. That was already untrue before this change (`ribbons` shipped as a fourth) and pinning a count here turned out to be the wrong shape of rule: every consumer of the list is generated from the fields directory, so the count is an output of the build, not an input to it. What matters is the properties each field must satisfy, which the requirements below state.
+
+#### Scenario: Adding a field requires no edit outside the pipeline
+
+- **WHEN** a `.orb` field is added to `packages/orb-core/shaders/fields/`
+- **THEN** it appears in the generated field lists for web, native and Swift, in the example harness, and in the contrast, aspect and brand-unity checks, with no hand-maintained list to update
+
+#### Scenario: Every field must earn its place on both shapes
+
+- **WHEN** a new field is added
+- **THEN** it SHALL pass the WCAG AA contrast gate at every preset, hold its central region across aspect ratios, and differ visibly from its neighbours in the brand-unity ring — a field that reads only as an Orb and washes out as a Surface does not qualify
 
 #### Scenario: Field is selected by prop
 

@@ -1,0 +1,115 @@
+// Dither — a smooth signal quantised through an ordered Bayer threshold.
+//
+// The other fields are continuous materials. This one is deliberately not:
+// its whole character is hard on/off cells, so the transition between tone
+// levels is a visible field of dots rather than a gradient.
+//
+// THE BAYER MATRIX, WITHOUT AN ARRAY
+//
+// The classic implementation is a 4x4 lookup table. That is unavailable here:
+// the portable subset bans dynamic array indexing (docs/shader-abi.md), so
+// `bayer[y * 4 + x]` cannot be written at all. The bit-interleaving trick is
+// also avoided — bitwise operators are not part of the documented subset, and
+// nothing in this repo asserts they behave identically across GLSL ES 3.00,
+// SkSL and MSL, so relying on them would be relying on luck.
+//
+// Instead the matrix is computed from its own recurrence,
+//
+//     M4(x, y) = 4 * M2(x mod 2, y mod 2) + M2(floor(x/2), floor(y/2))
+//
+// with M2(x, y) = (2x + 3y) mod 4. That reproduces the canonical Bayer 4x4
+// (0 8 2 10 / 12 4 14 6 / 3 11 1 9 / 15 7 13 5) exactly — verified against the
+// published matrix before it was written here — in pure float arithmetic.
+//
+// WORLD SPACE, NOT PIXELS
+//
+// The dither cell is sized in WORLD units, not fragment coordinates. Keying it
+// to pixels is the obvious thing and it is wrong twice over: the orb and the
+// surface use different `scale`, so the cell would change size between the two
+// shapes and break the "same material" claim, and the aspect-distortion check
+// renders the same world region at several resolutions and would see the cell
+// resize under it.
+//
+// COST: ~4 hashes for the underlying signal plus the Bayer arithmetic — the
+// cheapest field here, comparable to chladni (~3).
+
+// Bayer 2x2, the seed of the recurrence: [[0, 2], [3, 1]].
+float ditherBayer2(float x, float y) {
+    return oMod(2.0 * x + 3.0 * y, 4.0);
+}
+
+/// Canonical Bayer 4x4 threshold at integer cell (x, y), normalised to 0..1.
+float ditherBayer4(float x, float y) {
+    float lo = ditherBayer2(oMod(x, 2.0), oMod(y, 2.0));
+    float hi = ditherBayer2(oMod(floor(x * 0.5), 2.0), oMod(floor(y * 0.5), 2.0));
+    return (4.0 * lo + hi) / 16.0;
+}
+
+float ditherHash(vec2 p) {
+    vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
+}
+
+float ditherNoise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    float a = ditherHash(i);
+    float b = ditherHash(i + vec2(1.0, 0.0));
+    float c = ditherHash(i + vec2(0.0, 1.0));
+    float d = ditherHash(i + vec2(1.0, 1.0));
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+vec3 field(vec2 p, float t, float energy, float coherence, float warmth, float pulse) {
+    // `t` already carries `pulse` and the component's `speed`
+    // (docs/shader-abi.md); multiplying again would apply it twice.
+    float clock = t;
+
+    // THE SINGLE STRUCTURAL AXIS.
+    //
+    // Cell size and the number of tone levels are two separate ideas riding
+    // one `coherence` curve, because that is the only structural channel the
+    // frozen ABI provides (gate-3.5/findings.md). High coherence is a fine
+    // cell with many levels — nearly continuous; low coherence is a coarse
+    // cell with few levels — chunky and graphic. "Coarse cell, many levels"
+    // is unreachable, and that is a property of the contract.
+    float cellSize = mix(0.055, 0.022, coherence);
+    float levels = mix(3.0, 7.0, coherence);
+
+    // The signal being quantised: slow drifting noise, plus a gentle radial
+    // fall so the orb reads as lit from its centre rather than as flat tone.
+    float signal = ditherNoise(p * 3.1 + vec2(clock * 0.09, clock * -0.06)) * 0.75
+                 + ditherNoise(p * 6.7 - vec2(clock * 0.05, clock * 0.08)) * 0.25;
+    signal = mix(signal, 1.0 - length(p) * 0.9, 0.35);
+
+    // Integer cell coordinates in WORLD space — see the header.
+    vec2 cell = floor(p / cellSize);
+    float threshold = ditherBayer4(cell.x, cell.y);
+
+    // Ordered dithering proper: add the threshold before quantising, so the
+    // rounding error becomes a spatial pattern instead of a hard contour.
+    float quantised = floor(signal * levels + threshold) / levels;
+    quantised = clamp(quantised, 0.0, 1.0);
+
+    float amplitude = mix(0.30, 1.0, energy);
+
+    // Warmth is authored, not remapped: no field in this lineage has a native
+    // warmth concept (docs/shader-abi.md), so the palette is original work.
+    vec3 cool = vec3(0.30, 0.46, 0.76);
+    vec3 warm = vec3(0.86, 0.52, 0.26);
+    vec3 tint = mix(cool, warm, warmth);
+
+    // Capped deliberately low. The contrast check measures the SINGLE
+    // BRIGHTEST pixel against white body text, and a dither's brightest cell
+    // is fully on by construction — the one thing this family does that the
+    // continuous fields do not.
+    vec3 col = tint * quantised * 0.62 * amplitude;
+
+    // Grain, matching the house convention in the other fields.
+    float grain = ditherHash(p * 700.0 + clock * 11.0);
+    col += (grain - 0.5) * 0.01;
+
+    return clamp(col, 0.0, 1.0);
+}

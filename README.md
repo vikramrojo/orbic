@@ -46,7 +46,7 @@ tree-shaking regresses:
 | Consumer | Bundle |
 |---|---|
 | One field, via `@orbic/web/minimal` | **53.1 kB** |
-| All five fields, via `@orbic/web` | **190.6 kB** |
+| All eight fields, via `@orbic/web` | **288.1 kB** |
 
 Getting the smaller number is opt-in, and deliberately so. Importing
 `@orbic/web` registers every field, because `<Orb field="anything" />` working
@@ -65,7 +65,10 @@ Per-field shader payload, measured on the generated modules:
 | Field | Raw | Gzipped |
 |---|---|---|
 | chladni | 35.2 kB | 10.3 kB |
-| ribbons | 35.2 kB | 10.5 kB |
+| contour | 31.8 kB | 9.8 kB |
+| dither | 32.0 kB | 9.9 kB |
+| moire | 30.4 kB | 9.5 kB |
+| ribbons | 38.5 kB | 11.1 kB |
 | silk | 48.5 kB | 12.3 kB |
 | veils | 43.4 kB | 11.9 kB |
 | flat-color (placeholder) | 23.0 kB | 8.0 kB |
