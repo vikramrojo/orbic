@@ -68,6 +68,14 @@ inline float oAtan2(float y, float x) {
 // Portable subset throughout: constant-bound `for` loops, no arrays, no
 // `mod`/two-arg `atan`, no textures.
 
+// How far apart, in phase, consecutive bands sit on the visibility wave.
+// Small enough that neighbouring bands differ visibly, large enough that the
+// wave takes several bands to travel — so it reads as rolling through them
+// rather than as every band blinking together.
+constant float BAND_WAVE_SPACING = 0.85;
+// Speed of that roll.
+constant float BAND_WAVE_RATE = 0.9;
+
 float ribbonHash(float2 p) {
     float3 p3 = fract(float3(p.xyx) * float3(0.1031, 0.1030, 0.0973));
     p3 += dot(p3, p3.yzx + 33.33);
@@ -109,10 +117,13 @@ float3 field(float2 p, float t, float energy, float coherence, float warmth, flo
     float dotRadius = mix(0.022, 0.014, coherence);
     float waveAmp = mix(0.050, 0.018, coherence);
 
-    // Bands run along x and stack along y. Rotating the whole field slightly
-    // keeps them off the pixel grid, which stops the dots aliasing into
-    // visible rows on a Surface.
-    float2 q = float2(p.x * 0.94 - p.y * 0.34, p.x * 0.34 + p.y * 0.94);
+    // Bands run along x and stack along y — HORIZONTAL, deliberately, and not
+    // rotated. An earlier version tilted the whole field ~20 degrees to keep
+    // the dots off the pixel grid, which does suppress aliasing but destroys
+    // the thing the bands are for: horizontal is what makes them read as a
+    // waveform rather than as a diagonal hatch. The undulation below already
+    // breaks exact axis alignment, so the dots do not settle into hard rows.
+    float2 q = p;
 
     float bandIndex = floor(q.y / bandSpacing);
     float glow = 0.0;
@@ -124,6 +135,15 @@ float3 field(float2 p, float t, float energy, float coherence, float warmth, flo
     for (int b = -1; b <= 1; b++) {
         float band = bandIndex + float(b);
         float slotIndex = floor(q.x / dotSpacing);
+
+        // Whole-band visibility, rolling vertically through the stack over
+        // time, so bands fade IN and OUT rather than all sitting there
+        // permanently. The smoothstep is what makes them actually leave:
+        // a bare sine only dims to zero instantaneously at the trough, which
+        // reads as a pulse, while this holds each band off for a stretch
+        // before bringing it back.
+        float bandPhase = band * BAND_WAVE_SPACING - clock * BAND_WAVE_RATE;
+        float bandEnvelope = smoothstep(0.18, 0.92, 0.5 + 0.5 * sin(bandPhase));
 
         for (int i = -1; i <= 1; i++) {
             float slot = slotIndex + float(i);
@@ -144,7 +164,7 @@ float3 field(float2 p, float t, float energy, float coherence, float warmth, flo
             float travel = 0.55 + 0.45 * sin(dotX * 2.1 - clock * 1.3 + band * 0.9);
 
             float radius = dotRadius * (0.65 + 0.7 * character);
-            float weight = travel * (0.55 + 0.45 * character);
+            float weight = travel * bandEnvelope * (0.55 + 0.45 * character);
 
             // Soft halo for the field's overall glow, plus a tighter core so
             // each dot stays legible as a point instead of dissolving.
