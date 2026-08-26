@@ -105,7 +105,7 @@ describe('orbic build-shader', () => {
 
     // Both shapes must render the new material, not the same output twice.
     expect(orb.content).not.toBe(surface.content);
-    expect(orb.content).toContain('ORB_FADE_RADIUS');
+    expect(orb.content).toContain('ORB_LIMB_FEATHER');
     expect(surface.content).toContain('SURFACE_BLUR_RADIUS');
   });
 

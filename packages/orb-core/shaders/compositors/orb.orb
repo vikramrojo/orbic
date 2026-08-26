@@ -1,12 +1,23 @@
-// Orb compositor: a soft radial falloff over the field's colour, with no
-// silhouette edge and no rim shading.
+// Orb compositor: the field seen through a transparent sphere.
 //
-// This deliberately replaced an earlier sphere-mask-plus-rim compositor. That
-// version cut alpha across a 0.04-wide band at radius 0.5 and brightened a
-// band just inside it, which read as a lit 3D ball with a crisp cut-out edge.
-// The look Orbic wants is flatter and quieter — the orb should sit in its
-// background rather than be stamped onto it — so the mask became a long
-// falloff and the rim term was removed outright rather than turned down.
+// Alpha follows the sphere's own geometry rather than a radial blur. The
+// hemisphere height z = sqrt(1 - r^2) is nearly flat across the face and then
+// plunges at the limb, which is what makes it read as a curved solid; a
+// linear or smoothstep radial ramp is steepest in the MIDDLE, which reads as
+// fog. A Fresnel term (the standard rim formulation, 1 - dot(normal,
+// viewDir), which collapses to 1 - z under an orthographic view) then
+// thickens the material toward the limb.
+//
+// This replaced two earlier versions, and the reasons both failed are worth
+// keeping:
+//   - A sphere mask plus an ADDITIVE white rim. The rim read as a hard bright
+//     outline stamped on the background.
+//   - A wide soft radial falloff with no rim at all. Removing the geometry
+//     along with the rim left a blur with no form.
+// The Fresnel term here drives DENSITY, never colour: glass becomes more
+// opaque at a grazing angle, it does not glow white. That is the whole
+// difference between "curved transparent geometry" and "hard white edge".
+//
 // Per-instance firmness is not this file's job: the `edge` prop is applied in
 // the epilogue, which post-processes the alpha returned here (see
 // targets/epilogue-orb.glsl). composite()'s signature is frozen, so a
@@ -19,38 +30,64 @@
 //
 // Written once in the portable subset — no texture sampling, no `discard`,
 // no `while`, no dynamic indexing, no preprocessor, no bare `mod`/two-arg
-// `atan`, no `uniform` declarations. `smoothstep`, `length` and `pow` are
-// portable built-ins available identically on all three targets.
+// `atan`, no `uniform` declarations. `smoothstep`, `length`, `sqrt` and `pow`
+// are portable built-ins available identically on all three targets.
 
-// Radius at which the falloff begins. Inside this the orb is fully opaque.
-const float ORB_CORE_RADIUS = 0.18;
+// Sphere radius in world space. Kept under 0.5 so the feathered limb still
+// lands inside the viewport: world space is normalised by
+// min(resolution.x, resolution.y), so 0.5 is exactly the half-extent along
+// each axis while the corners reach ~0.707. A silhouette still carrying alpha
+// at 0.5 would be cut flat against the sides and continue into the corners —
+// a square halo rather than a round one.
+const float ORB_RADIUS = 0.46;
 
-// Radius at which alpha reaches exactly 0.
+// Width of the feather on the silhouette. Deliberately SMALL. The orb reads
+// as a sphere because of the z-curvature below, not because of a wide blur —
+// an earlier version widened this into a long ramp and the result read as fog
+// with no geometry to it.
+const float ORB_LIMB_FEATHER = 0.035;
+
+// How transparent the orb is face-on. The limb always reaches full density,
+// so this is what makes the middle read as something you can see into.
+const float ORB_CORE_ALPHA = 0.42;
+
+// Falloff of the Fresnel term from limb to centre.
 //
-// This MUST NOT exceed 0.5. World space is normalised by
-// min(resolution.x, resolution.y) and the orb is drawn into a square, so 0.5
-// is exactly the viewport half-extent along each axis while the corners reach
-// ~0.707. A falloff still carrying alpha at 0.5 would therefore be cut flat
-// against the left/right/top/bottom edges while continuing into the corners —
-// reading as a faint square halo rather than a round one.
-const float ORB_FADE_RADIUS = 0.5;
-
-// Shapes the shoulder of the falloff. Above 1 the orb holds its body and then
-// releases quickly; at 1 it is the bare smoothstep, which reads flat-topped.
-const float ORB_FALLOFF_SHAPE = 1.35;
+// Tuned by measuring the alpha profile, not by eye: at 2.5 the densification
+// was confined to a sliver at the limb that the feather then ate, leaving a
+// FLAT disc (alpha ~140/255 from centre to r=0.7) with a soft edge — the same
+// "no geometry" failure as the blur it replaced. At 1.2 the gradient spans
+// the face: ~107 at centre, ~124 at half radius, ~190 near the limb.
+const float ORB_FRESNEL_POWER = 1.2;
 
 vec4 composite(vec2 p, float t, float energy, float coherence, float warmth, float pulse) {
     vec3 color = field(p, t, energy, coherence, warmth, pulse);
 
     float dist = length(p);
+    float r = min(dist / ORB_RADIUS, 1.0);
 
-    // 1 in the core, easing to exactly 0 at ORB_FADE_RADIUS. `smoothstep`
-    // reaching a true 0 (rather than an exponential tail that only
-    // approaches it) is what keeps the "transparent outside the orb"
-    // guarantee real.
-    float falloff = 1.0 - smoothstep(ORB_CORE_RADIUS, ORB_FADE_RADIUS, dist);
+    // The hemisphere's height at this radius — the z of a unit sphere seen
+    // head-on. This is the curvature: nearly flat across the face, then
+    // plunging toward 0 at the limb. A linear or smoothstep radial ramp does
+    // the opposite (steepest in the middle), which is why one reads as a ball
+    // and the other as a blur.
+    float z = sqrt(max(1.0 - r * r, 0.0));
 
-    float alpha = pow(max(falloff, 0.0), ORB_FALLOFF_SHAPE);
+    // Standard Fresnel/rim term. For an orthographic view the view direction
+    // is (0, 0, 1), so dot(normal, viewDir) collapses to z and no explicit
+    // normal vector is needed. 0 face-on, 1 at the limb.
+    float fresnel = pow(1.0 - z, ORB_FRESNEL_POWER);
+
+    // Fresnel drives DENSITY, never colour. Adding it to the colour instead
+    // is what produced the hard white rim this replaced: glass gets more
+    // opaque at a grazing angle, it does not glow white.
+    float density = mix(ORB_CORE_ALPHA, 1.0, fresnel);
+
+    // Feathers the last fraction of the silhouette so the limb is not a hard
+    // cut, while staying narrow enough that the circle still reads as round.
+    float silhouette = 1.0 - smoothstep(ORB_RADIUS - ORB_LIMB_FEATHER, ORB_RADIUS + ORB_LIMB_FEATHER, dist);
+
+    float alpha = density * silhouette;
 
     return vec4(color * alpha, alpha);
 }

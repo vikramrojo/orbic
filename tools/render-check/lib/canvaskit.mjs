@@ -27,18 +27,19 @@ const require = createRequire(import.meta.url);
 // where 7 was expected) rather than by assumption, which is exactly what that
 // check is for.
 //
-// The ORB epilogue now carries a trailing uniform of its own, `u_edge` (the
-// Orb component's public `edge` prop), so BOTH shapes are 8 floats -- but
-// they are NOT interchangeable: the 8th float means `scale` on a surface and
-// `edge` on an orb. Matching lengths is precisely the case renderSksl's
-// length check cannot catch, so callers must pass the right one for the
-// shape. makeUniforms() appends whichever it is given, and rejects being
-// given both.
+// The ORB epilogue carries two trailing uniforms of its own, `u_edge` and
+// `u_backlight` (the Orb component's public `edge` and `backlight` props), so
+// the shapes now differ in BOTH length and meaning: 8 floats ending in
+// `scale` for a surface, 9 ending in `edge, backlight` for an orb. Callers
+// must pass the right ones for the shape; makeUniforms() appends whichever it
+// is given and rejects a mix.
 export const BASE_UNIFORM_FLOAT_COUNT = 7;
 export const SURFACE_UNIFORM_FLOAT_COUNT = 8;
-export const ORB_UNIFORM_FLOAT_COUNT = 8;
+export const ORB_UNIFORM_FLOAT_COUNT = 9;
 /** Matches epilogue-orb.sksl's default: 0 is an exact pass-through of the compositor's soft falloff. */
 export const ORB_DEFAULT_EDGE = 0.0;
+/** Matches epilogue-orb.sksl's default: 0 is no rear lighting at all. */
+export const ORB_DEFAULT_BACKLIGHT = 0.0;
 export const SURFACE_DEFAULT_SCALE = 3.0; // matches epilogue-surface.sksl's own stated default
 
 let canvasKitPromise = null;
@@ -56,27 +57,43 @@ export function getCanvasKit() {
 }
 
 /**
- * Builds the uniform Float32Array in the exact order `preamble.sksl`
- * declares: u_resolution.xy, u_time, u_energy, u_coherence, u_warmth,
- * u_pulse -- followed by ONE shape-specific trailing float: `scale` for a
- * surface (`epilogue-surface.sksl`'s u_scale) or `edge` for an orb
- * (`epilogue-orb.sksl`'s u_edge).
+ * Builds the uniform Float32Array in the exact order the shaders declare it:
+ * u_resolution.xy, u_time, u_energy, u_coherence, u_warmth, u_pulse --
+ * followed by the SHAPE-SPECIFIC trailing floats. A surface adds `scale`
+ * (epilogue-surface.sksl's u_scale); an orb adds `edge` then `backlight`, in
+ * that declaration order (epilogue-orb.sksl).
  *
- * Passing both throws. Both shapes are 8 floats, so a swapped trailing value
- * would sail past `renderSksl`'s length check and silently render the wrong
- * thing -- an orb drawn with scale 3.0 in the edge slot would look firm-edged
- * for no visible reason. The length check cannot catch that; this can.
+ * Mixing a surface float with orb floats throws. The two shapes now differ in
+ * length as well as meaning, so `renderSksl`'s length check would catch most
+ * mistakes -- but it could not catch a swap between two orb floats, and it is
+ * cheaper to reject the mistake here than to debug a render that is merely
+ * wrong rather than broken.
  */
-export function makeUniforms({ width, height, time = 0, energy = 0.5, coherence = 0.5, warmth = 0.5, pulse = 0, scale, edge }) {
-  if (scale !== undefined && edge !== undefined) {
+export function makeUniforms({
+  width,
+  height,
+  time = 0,
+  energy = 0.5,
+  coherence = 0.5,
+  warmth = 0.5,
+  pulse = 0,
+  scale,
+  edge,
+  backlight,
+}) {
+  const orbGiven = edge !== undefined || backlight !== undefined;
+  if (scale !== undefined && orbGiven) {
     throw new Error(
-      'makeUniforms: pass `scale` (surface) or `edge` (orb), not both — they occupy the same trailing slot'
+      'makeUniforms: pass `scale` (surface) or `edge`/`backlight` (orb), not a mix — they are different shapes'
     );
   }
 
   const values = [width, height, time, energy, coherence, warmth, pulse];
   if (scale !== undefined) values.push(scale);
-  if (edge !== undefined) values.push(edge);
+  if (orbGiven) {
+    // Declaration order, not argument order: u_edge precedes u_backlight.
+    values.push(edge ?? ORB_DEFAULT_EDGE, backlight ?? ORB_DEFAULT_BACKLIGHT);
+  }
   return new Float32Array(values);
 }
 

@@ -25,12 +25,18 @@ export interface OrbProps {
   speed?: number;
   paused?: boolean;
   /**
-   * Silhouette firmness, 0..1. The orb compositor renders a soft radial
-   * falloff with no hard edge; raising this firms that falloff into a more
-   * defined border. It never restores the old masked sphere with its rim
-   * highlight — that look is retired.
+   * Silhouette firmness, 0..1. The orb is composited through a soft-limbed
+   * sphere; raising this tightens the limb without touching interior density,
+   * so the orb keeps its transparency and only its outline gets crisper.
    */
   edge?: number;
+  /**
+   * Rear lighting, 0..1. A light behind the sphere: it brightens the limb and
+   * spills a little past the silhouette. Tinted by the field's own colour
+   * rather than white, so it reads as light around the orb rather than an
+   * outline drawn on it.
+   */
+  backlight?: number;
   className?: string;
   style?: CSSProperties;
 }
@@ -42,6 +48,7 @@ export function Orb({
   speed = 1,
   paused = false,
   edge = 0,
+  backlight = 0,
   className,
   style,
 }: OrbProps) {
@@ -84,6 +91,8 @@ export function Orb({
   fieldRef.current = resolvedField;
   const edgeRef = useRef(edge);
   edgeRef.current = edge;
+  const backlightRef = useRef(backlight);
+  backlightRef.current = backlight;
 
   const active = mounted && !reducedMotion && !paused && intersecting && documentVisible;
 
@@ -104,6 +113,7 @@ export function Orb({
         height: sizeRef.current,
         uniforms,
         edge: edgeRef.current,
+        backlight: backlightRef.current,
       });
     });
     return () => {
@@ -137,8 +147,9 @@ export function Orb({
       height: size,
       uniforms: runtime.uniforms(),
       edge,
+      backlight,
     });
-  }, [active, mounted, runtime, resolvedField, size, edge]);
+  }, [active, mounted, runtime, resolvedField, size, edge, backlight]);
 
   if (!mounted) {
     const warmth = presetChannels(resolvedState).warmth;

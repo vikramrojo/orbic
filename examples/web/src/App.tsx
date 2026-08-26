@@ -170,6 +170,7 @@ export function App() {
   const [pgSize, setPgSize] = useState<number>(96);
   const [pgSpeed, setPgSpeed] = useState(1);
   const [pgEdge, setPgEdge] = useState(0);
+  const [pgBacklight, setPgBacklight] = useState(0);
   const [pgPaused, setPgPaused] = useState(false);
 
   return (
@@ -365,13 +366,36 @@ export function App() {
                 <span className="orbic-slider-value">{pgEdge.toFixed(2)}</span>
               </div>
             </div>
+
+            <div className="orbic-control-group">
+              <span className="orbic-control-label">Backlight</span>
+              <div className="orbic-slider-row">
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={pgBacklight}
+                  onChange={(e) => setPgBacklight(Number(e.target.value))}
+                />
+                <span className="orbic-slider-value">{pgBacklight.toFixed(2)}</span>
+              </div>
+            </div>
           </div>
         </section>
 
         <section className="orbic-section">
           <h2 className="orbic-heading">Preview</h2>
           <div className="orbic-preview-card">
-            <Orb field={pgField} state={pgState} size={pgSize} speed={pgSpeed} edge={pgEdge} paused={pgPaused} />
+            <Orb
+              field={pgField}
+              state={pgState}
+              size={pgSize}
+              speed={pgSpeed}
+              edge={pgEdge}
+              backlight={pgBacklight}
+              paused={pgPaused}
+            />
           </div>
           <div className="orbic-preview-controls">
             <button

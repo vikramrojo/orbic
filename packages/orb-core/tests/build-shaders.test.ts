@@ -180,59 +180,96 @@ describe('applyMetalProgramScopeConstants', () => {
   });
 });
 
-describe('orb.orb — soft falloff, no rim', () => {
-  it('has no rim term at all', () => {
-    // The rim was removed rather than turned down, so that a future tweak
-    // cannot quietly reintroduce a lit-sphere highlight.
+describe('orb.orb — sphere geometry, no white rim', () => {
+  it('has no additive rim term', () => {
+    // The old rim ADDED to colour, which read as a hard white outline stamped
+    // on the background. Fresnel here drives alpha instead, so the guard is
+    // that nothing lifts the colour toward white in the compositor.
     expect(orbCompositorSource).not.toMatch(/ORB_RIM/);
     expect(orbCompositorSource).not.toMatch(/litColor/);
+    expect(orbCompositorSource).not.toMatch(/color\s*\+/);
   });
 
-  it('fades to zero at or before the viewport half-extent', () => {
+  it('drives alpha from the sphere height, not a radial ramp', () => {
+    // z = sqrt(1 - r^2) is the curvature: flat across the face, plunging at
+    // the limb. A linear/smoothstep radial ramp is steepest in the MIDDLE,
+    // which is why an earlier version read as fog rather than a ball.
+    expect(orbCompositorSource).toMatch(/sqrt\(max\(1\.0 - r \* r, 0\.0\)\)/);
+  });
+
+  it('applies Fresnel to density rather than to colour', () => {
+    expect(orbCompositorSource).toMatch(/fresnel\s*=\s*pow\(1\.0 - z/);
+    expect(orbCompositorSource).toMatch(/density\s*=\s*mix\(ORB_CORE_ALPHA, 1\.0, fresnel\)/);
+  });
+
+  it('keeps a transparent core, so the orb reads as glass rather than a disc', () => {
+    const core = Number(orbCompositorSource.match(/ORB_CORE_ALPHA\s*=\s*([0-9.]+)/)![1]);
+    expect(core).toBeGreaterThan(0);
+    expect(core).toBeLessThan(1);
+  });
+
+  it('keeps the feathered limb inside the viewport', () => {
     // World space is normalised by min(resolution), so 0.5 is exactly the
-    // viewport edge along each axis while the corners reach ~0.707. A
-    // falloff still carrying alpha at 0.5 would be cut flat against the
-    // sides and continue into the corners — a square halo, not a round one.
-    const match = orbCompositorSource.match(/ORB_FADE_RADIUS\s*=\s*([0-9.]+)/);
-    expect(match).not.toBeNull();
-    expect(Number(match![1])).toBeLessThanOrEqual(0.5);
+    // half-extent along each axis while the corners reach ~0.707. A
+    // silhouette still carrying alpha at 0.5 would be cut flat against the
+    // sides and continue into the corners — a square halo.
+    const radius = Number(orbCompositorSource.match(/ORB_RADIUS\s*=\s*([0-9.]+)/)![1]);
+    const feather = Number(orbCompositorSource.match(/ORB_LIMB_FEATHER\s*=\s*([0-9.]+)/)![1]);
+    expect(radius + feather).toBeLessThanOrEqual(0.5);
   });
 
-  it('starts fading before it ends, so the edge is soft rather than cut', () => {
-    const core = Number(orbCompositorSource.match(/ORB_CORE_RADIUS\s*=\s*([0-9.]+)/)![1]);
-    const fade = Number(orbCompositorSource.match(/ORB_FADE_RADIUS\s*=\s*([0-9.]+)/)![1]);
-    expect(core).toBeLessThan(fade);
-    // A band this wide is what distinguishes the new look from the old
-    // 0.04-wide cut at radius 0.5.
-    expect(fade - core).toBeGreaterThan(0.1);
+  it('keeps the feather narrow, so the silhouette stays round rather than foggy', () => {
+    const feather = Number(orbCompositorSource.match(/ORB_LIMB_FEATHER\s*=\s*([0-9.]+)/)![1]);
+    expect(feather).toBeLessThan(0.08);
   });
 });
 
-describe('epilogue-orb — the `edge` uniform', () => {
+describe('epilogue-orb — the `edge` and `backlight` uniforms', () => {
   const epilogue = (target: string) =>
     readFileSync(resolve(shadersDir, `targets/epilogue-orb.${target}`), 'utf8');
 
-  it('declares the uniform on the GLSL and SkSL targets', () => {
-    expect(epilogue('glsl')).toMatch(/uniform float u_edge;/);
-    expect(epilogue('sksl')).toMatch(/uniform float u_edge;/);
-  });
-
-  it('carries edge as a trailing Metal argument, since MSL has no uniform globals', () => {
-    const metal = epilogue('metal');
-    // Trailing matters: Swift passes these positionally.
-    expect(metal).toMatch(/float pulse,\s*\n\s*float edge\s*\n\s*\)/);
-  });
-
-  it('is an exact pass-through at edge = 0 on every target', () => {
-    // mix(a, firmed, 0) === a. Mixing the RESULT rather than the smoothstep
-    // bounds is what makes that exact — smoothstep(0, 1, a) would already be
-    // an S-curve, silently reshaping every orb that never set the prop.
-    for (const target of ['glsl', 'sksl', 'metal']) {
-      expect(epilogue(target)).toMatch(/mix\(composited\.a,\s*firmed,\s*(u_)?edge\)/);
+  it('declares both uniforms on the GLSL and SkSL targets', () => {
+    for (const target of ['glsl', 'sksl']) {
+      expect(epilogue(target)).toMatch(/uniform float u_edge;/);
+      expect(epilogue(target)).toMatch(/uniform float u_backlight;/);
     }
   });
 
-  it('un-premultiplies before changing alpha, with a divide-by-zero guard', () => {
+  it('carries both as trailing Metal arguments, in declaration order', () => {
+    // Swift passes these positionally, so the order is load-bearing.
+    expect(epilogue('metal')).toMatch(/float pulse,\s*\n\s*float edge,\s*\n\s*float backlight\s*\n\s*\)/);
+  });
+
+  it('works `edge` in the feather coordinate, not in alpha space', () => {
+    // With a transparent core the interior sits near alpha 0.42 while the
+    // feather sweeps 0.6 down to 0 — the ranges OVERLAP, so an alpha-space
+    // remap cannot tell them apart and hollows out the orb instead of
+    // tightening its edge. This is the regression guard for that.
+    for (const target of ['glsl', 'sksl', 'metal']) {
+      expect(epilogue(target)).toMatch(/baseSilhouette\s*=\s*1\.0 - smoothstep\(0\.0, 1\.0, u\)/);
+      expect(epilogue(target)).toMatch(/sharpSilhouette \/ max\(baseSilhouette/);
+    }
+  });
+
+  it('leaves interior density untouched at any edge, since u = 0 there', () => {
+    for (const target of ['glsl', 'sksl', 'metal']) {
+      expect(epilogue(target)).toMatch(/mix\(1\.0, sharpSilhouette \/ max\(baseSilhouette, 1e-4\), (u_)?edge\)/);
+    }
+  });
+
+  it('tints the backlight by the field colour rather than blowing out to white', () => {
+    for (const target of ['glsl', 'sksl', 'metal']) {
+      expect(epilogue(target)).toMatch(/glowColor = mix\(straight, (vec3|float3)\(1\.0\), 0\.35\)/);
+    }
+  });
+
+  it('gives the backlight its own alpha, so it can exist outside the body', () => {
+    for (const target of ['glsl', 'sksl', 'metal']) {
+      expect(epilogue(target)).toMatch(/outAlpha = clamp\(alpha \+ glow \* \(1\.0 - alpha\)/);
+    }
+  });
+
+  it('un-premultiplies before touching alpha, with a divide-by-zero guard', () => {
     for (const target of ['glsl', 'sksl', 'metal']) {
       expect(epilogue(target)).toMatch(/composited\.rgb\s*\/\s*max\(composited\.a,/);
     }

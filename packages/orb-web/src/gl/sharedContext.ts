@@ -9,7 +9,7 @@ type Listener = () => void;
  * u_scale (surface-only, surface-component spec's `scale` prop). Resolved
  * once per program, not looked up every frame. `gl.getUniformLocation`
  * returns null for a name a given program doesn't declare (u_scale on an orb
- * program, u_edge on a surface one) — safe to resolve unconditionally for
+ * program, u_edge/u_backlight on a surface one) — safe to resolve unconditionally for
  * every program;
  * `gl.uniform1f(null, ...)` on an unused location is a documented no-op.
  */
@@ -22,6 +22,7 @@ export const UNIFORM_NAMES = [
   'u_pulse',
   'u_scale',
   'u_edge',
+  'u_backlight',
 ] as const;
 export type UniformName = (typeof UNIFORM_NAMES)[number];
 

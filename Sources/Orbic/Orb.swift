@@ -3,13 +3,16 @@ import SwiftUI
 /// An animated Orb: a field composited through a soft radial falloff, driven
 /// by the shared spring integrator.
 ///
-/// The public surface (`field`, `state`, `size`, `speed`, `paused`, `edge`)
+/// The public surface (`field`, `state`, `size`, `speed`, `paused`, `edge`,
+/// `backlight`)
 /// matches `<Orb>` on web and native, with the same defaults — the
 /// orb-component spec requires no platform-only prop and no differing default.
 ///
-/// `edge` firms the silhouette: 0 leaves the compositor's soft falloff
-/// untouched, 1 is as defined as it gets. It does not restore the old masked
-/// sphere with its rim highlight, which has been retired.
+/// `edge` tightens the limb without touching interior density, so the orb
+/// keeps its transparency and only its outline gets crisper. `backlight` is a
+/// light behind the sphere, brightening the limb and spilling slightly past
+/// the silhouette — tinted by the field's colour, not white, so it reads as
+/// light around the orb rather than the hard rim that was retired.
 @available(iOS 17.0, macOS 14.0, *)
 public struct Orb: View {
     private let field: String
@@ -18,6 +21,7 @@ public struct Orb: View {
     private let speed: Double
     private let paused: Bool
     private let edge: Double
+    private let backlight: Double
 
     public init(
         field: String,
@@ -25,7 +29,8 @@ public struct Orb: View {
         size: CGFloat = 160,
         speed: Double = 1,
         paused: Bool = false,
-        edge: Double = 0
+        edge: Double = 0,
+        backlight: Double = 0
     ) {
         self.field = field
         self.state = state
@@ -33,6 +38,7 @@ public struct Orb: View {
         self.speed = speed
         self.paused = paused
         self.edge = edge
+        self.backlight = backlight
     }
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -66,7 +72,8 @@ public struct Orb: View {
                         channels: driver?.channels ?? restingChannels,
                         time: driver?.time ?? 0,
                         size: size,
-                        edge: edge
+                        edge: edge,
+                        backlight: backlight
                     )
                 } else {
                     TimelineView(.animation) { timeline in
@@ -78,7 +85,8 @@ public struct Orb: View {
                             channels: channels,
                             time: driver.time,
                             size: size,
-                            edge: edge
+                            edge: edge,
+                            backlight: backlight
                         )
                     }
                 }
@@ -144,6 +152,7 @@ private struct OrbShaderLayer: View {
     let time: Double
     let size: CGFloat
     let edge: Double
+    let backlight: Double
 
     var body: some View {
         // Argument order is the frozen uniform ABI (docs/shader-abi.md).
@@ -156,9 +165,11 @@ private struct OrbShaderLayer: View {
             .float(Float(channels.coherence)),
             .float(Float(channels.warmth)),
             .float(Float(channels.pulse)),
-            // Trailing, orb-only — the Orb component's `edge` prop. Not part
-            // of the frozen four-channel ABI; see epilogue-orb.metal.
-            .float(Float(edge))
+            // Trailing, orb-only — the Orb component's `edge` and `backlight`
+            // props, in declaration order. Not part of the frozen four-channel
+            // ABI; see epilogue-orb.metal.
+            .float(Float(edge)),
+            .float(Float(backlight))
         )
 
         Rectangle()

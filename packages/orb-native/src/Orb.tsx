@@ -20,6 +20,11 @@ export interface OrbProps {
    * border. It does not restore the old masked sphere with its rim highlight.
    */
   edge?: number;
+  /**
+   * Rear lighting, 0..1. A light behind the sphere: it brightens the limb and
+   * spills a little past the silhouette, tinted by the field's own colour.
+   */
+  backlight?: number;
 }
 
 /**
@@ -29,7 +34,7 @@ export interface OrbProps {
  * and Swift, with the same defaults — the orb-component spec requires no
  * platform-only prop and no differing default.
  */
-export function Orb({ field, state = 'subtle', size = 160, speed = 1, paused = false, edge = 0 }: OrbProps) {
+export function Orb({ field, state = 'subtle', size = 160, speed = 1, paused = false, edge = 0, backlight = 0 }: OrbProps) {
   const resolvedField = resolveFieldName(field, undefined, { component: '<Orb>', prop: 'field' });
   const resolvedState = resolveStateName(state, undefined, { component: '<Orb>', prop: 'state' });
 
@@ -86,6 +91,7 @@ export function Orb({ field, state = 'subtle', size = 160, speed = 1, paused = f
             // Trailing, orb-only — see epilogue-orb.sksl. Skia takes named
             // uniforms, so there is nothing positional to keep in sync.
             u_edge: edge,
+            u_backlight: backlight,
           }}
         />
       </Fill>

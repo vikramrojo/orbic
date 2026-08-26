@@ -8,6 +8,9 @@ import { sharedGLContext } from './sharedContext.js';
 /** Matches epilogue-orb's own default: 0 is an exact pass-through of the compositor's soft falloff. */
 export const DEFAULT_ORB_EDGE = 0;
 
+/** Matches epilogue-orb's own default: 0 is no rear lighting at all. */
+export const DEFAULT_ORB_BACKLIGHT = 0;
+
 /** Matches the surface epilogues' previous hardcoded SURFACE_SCALE, so omitting `scale` is behaviourally unchanged. */
 export const DEFAULT_SURFACE_SCALE = 3.0;
 
@@ -23,6 +26,8 @@ export interface RenderFrameOptions {
   scale?: number;
   /** Silhouette firmness, orb-only (orb-component spec's `edge` prop). 0 leaves the compositor's soft falloff untouched. Ignored by the surface shape. */
   edge?: number;
+  /** Rear lighting, orb-only (orb-component spec's `backlight` prop). 0 is unlit. Ignored by the surface shape. */
+  backlight?: number;
 }
 
 /**
@@ -47,6 +52,7 @@ export function renderFrame({
   uniforms,
   scale = DEFAULT_SURFACE_SCALE,
   edge = DEFAULT_ORB_EDGE,
+  backlight = DEFAULT_ORB_BACKLIGHT,
 }: RenderFrameOptions): void {
   if (!canvas) return;
 
@@ -86,6 +92,7 @@ export function renderFrame({
   gl.uniform1f(locations.u_pulse, uniforms.pulse);
   gl.uniform1f(locations.u_scale, scale); // null location on an orb program: documented no-op
   gl.uniform1f(locations.u_edge, edge); // null location on a surface program: same no-op
+  gl.uniform1f(locations.u_backlight, backlight); // orb-only, same no-op on a surface
 
   gl.clearColor(0, 0, 0, 0);
   gl.clear(gl.COLOR_BUFFER_BIT);
