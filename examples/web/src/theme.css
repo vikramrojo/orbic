@@ -183,6 +183,9 @@
     column-gap: var(--space-4);
   }
 
+  /* No height here, and none inline either: every card shares this one --pad
+   * and sizes to its content, so the masonry variation comes from the orb
+   * sizes rather than from a height cycle. */
   .orbic-gallery-card {
     --bg: var(--surface);
     --radius: var(--radius-lg);
@@ -207,6 +210,33 @@
   .orbic-pill-label {
     --fg: var(--ink-muted);
     --font-size: 0.85rem;
+    white-space: nowrap;
+  }
+
+  /* --- Inline scale --------------------------------------------------- */
+
+  .orbic-inline-row {
+    display: flex;
+    align-items: flex-end;
+    --gap: var(--space-6);
+  }
+
+  .orbic-inline-sample {
+    --bg: var(--surface);
+    --radius: var(--radius-lg);
+    --pad: var(--space-4);
+    display: flex;
+    align-items: center;
+    /* Baseline-ish alignment: the samples differ in height by only 8px, so
+     * centring them reads as accidental where a shared baseline reads as a
+     * comparison. */
+    gap: 0.6em;
+  }
+
+  .orbic-inline-label {
+    --fg: var(--ink-muted);
+    --font-size: 0.8rem;
+    font-family: var(--font-mono);
     white-space: nowrap;
   }
 

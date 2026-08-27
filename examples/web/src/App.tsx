@@ -63,20 +63,41 @@ function usageSnippet(platform: Platform, field: string, state: PresetName): str
 interface GalleryItem {
   field: Field;
   state: PresetName;
-  height: number;
   orbSize: number;
 }
 
-// Deliberately varied heights and orb sizes — that variety is most of what
-// reads as a gallery rather than a grid, per the reference layout.
-//
-// Built from REVIEW_FIELDS rather than listed by hand, so a custom field shows
-// up in the gallery too. The height/size cycles are prime-ish lengths (5 and
-// 4) against a 3-long state cycle so the pattern does not visibly repeat when
-// the field count changes.
-const CARD_HEIGHTS = [260, 130, 190, 150, 220];
-const CARD_ORB_SIZES = [44, 28, 34, 38];
+// Cards carry no height of their own — every one has the same padding
+// (`--pad` on .orbic-gallery-card) and sizes to its content, so a bigger orb
+// simply makes a taller card. The masonry therefore comes from the orb sizes
+// below rather than from a hardcoded height cycle, which is what it used to
+// be. The state cycle is 5 long against 2 cards per field, so state and field
+// stay out of phase as fields are added.
 const CARD_STATES: PresetName[] = ['active', 'subtle', 'cooling', 'warming', 'pacing'];
+
+const CARD_ORB_MIN = 20;
+const CARD_ORB_MAX = 64;
+
+/**
+ * Deterministic pseudo-random in [0, 1) from an integer.
+ *
+ * Seeded rather than `Math.random()`, for three reasons that all bite here:
+ * `buildGallery` runs inside a `useMemo(..., [])` and React StrictMode
+ * double-invokes memo factories in development, so `Math.random()` would
+ * compute two different galleries and silently keep the second; this is a
+ * review harness, where a screenshot should change because a shader changed
+ * and not because the layout reshuffled; and `<Orb>` re-renders at a new
+ * resolution whenever `size` changes rather than rescaling a raster, so a size
+ * that moves between renders costs real work.
+ *
+ * The bit-mixing is a small integer hash — enough to look unpatterned across a
+ * dozen cards, which is all this needs to do.
+ */
+function seededUnitInterval(seed: number): number {
+  let h = Math.imul(seed ^ 0x9e3779b9, 0x85ebca6b);
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+  h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+}
 
 function buildGallery(fields: readonly string[]): GalleryItem[] {
   // Two cards per field keeps the column balanced for one field or for ten.
@@ -84,11 +105,11 @@ function buildGallery(fields: readonly string[]): GalleryItem[] {
   fields.forEach((field, f) => {
     for (let n = 0; n < 2; n++) {
       const i = f * 2 + n;
+      const spread = CARD_ORB_MAX - CARD_ORB_MIN;
       items.push({
         field,
         state: CARD_STATES[i % CARD_STATES.length]!,
-        height: CARD_HEIGHTS[i % CARD_HEIGHTS.length]!,
-        orbSize: CARD_ORB_SIZES[i % CARD_ORB_SIZES.length]!,
+        orbSize: Math.round(CARD_ORB_MIN + seededUnitInterval(i) * spread),
       });
     }
   });
@@ -96,6 +117,12 @@ function buildGallery(fields: readonly string[]): GalleryItem[] {
 }
 
 const SIZE_OPTIONS = [64, 96, 128, 160] as const;
+
+// Inline-scale samples for the bottom of the page. Deliberately far below
+// SIZE_OPTIONS' floor of 64: at this size the orb sits beside body text rather
+// than standing on its own, which is where a soft-edged field is most likely
+// to stop reading as anything at all.
+const INLINE_SIZES = [24, 32] as const;
 
 // Selected vs. unselected reads through largen's tone/variant axes rather
 // than a hand-rolled active/inactive style object — soft+primary for the
@@ -243,7 +270,7 @@ export function App() {
         <section className="orbic-section">
           <div className="orbic-gallery">
             {gallery.map((item, i) => (
-              <div key={i} className="orbic-gallery-card" style={{ height: item.height }}>
+              <div key={i} className="orbic-gallery-card">
                 <div className="orbic-pill">
                   <Orb field={item.field} state={item.state} size={item.orbSize} />
                   <span className="orbic-pill-label">
@@ -447,6 +474,30 @@ export function App() {
             >
               {pgPaused ? <IconPlay /> : <IconPause />}
             </button>
+          </div>
+        </section>
+
+        <section className="orbic-section">
+          <h2 className="orbic-heading">Inline scale</h2>
+          <p className="orbic-hint">
+            The smallest sizes the orb is meant to hold up at — beside running text rather than as an
+            avatar. Follows the playground&rsquo;s field and state, so changing those above changes these.
+          </p>
+          <div className="orbic-inline-row">
+            {INLINE_SIZES.map((size) => (
+              <div key={size} className="orbic-inline-sample">
+                <Orb
+                  field={pgField}
+                  state={pgState}
+                  size={size}
+                  speed={pgSpeed}
+                  edge={pgEdge}
+                  backlight={pgBacklight}
+                  paused={pgPaused}
+                />
+                <span className="orbic-inline-label">{size}px</span>
+              </div>
+            ))}
           </div>
         </section>
 
