@@ -137,7 +137,7 @@ vec3 field(vec2 p, float t, float energy, float coherence, float warmth, float p
     float quantised = floor(signal * levels + threshold) / levels;
     quantised = clamp(quantised, 0.0, 1.0);
 
-    float amplitude = mix(0.30, 1.0, energy);
+    float amplitude = mix(0.42, 1.0, energy);
 
     // Warmth is authored, not remapped: no field in this lineage has a native
     // warmth concept (docs/shader-abi.md), so the palette is original work.
@@ -145,11 +145,13 @@ vec3 field(vec2 p, float t, float energy, float coherence, float warmth, float p
     vec3 warm = vec3(0.86, 0.52, 0.26);
     vec3 tint = mix(cool, warm, warmth);
 
-    // Capped deliberately low. The contrast check measures the SINGLE
-    // BRIGHTEST pixel against white body text, and a dither's brightest cell
-    // is fully on by construction — the one thing this family does that the
-    // continuous fields do not.
-    vec3 col = tint * quantised * 0.62 * amplitude;
+    // Brightness note: an earlier pass capped this field hard, on the theory
+    // that the WCAG contrast gate would reject it. That gate measures the
+    // SURFACE render — after surface.orb's 2.3x gain and knee damping — so
+    // the cap was fighting a check that was already damping the output, and
+    // it left this field markedly darker on an Orb than the ported fields.
+    // Measured and lifted back toward chladni/silk.
+    vec3 col = tint * quantised * 1.15 * amplitude;
 
     // Grain, matching the house convention in the other fields.
     float grain = ditherHash(p * 700.0 + clock * 11.0);

@@ -425,7 +425,13 @@ const float ORB_LIMB_FEATHER = 0.035;
 
 // How transparent the orb is face-on. The limb always reaches full density,
 // so this is what makes the middle read as something you can see into.
-const float ORB_CORE_ALPHA = 0.42;
+//
+// Raised from 0.42, which measured as a mean alpha of 0.52 across the disc —
+// i.e. the orb was swallowing roughly half of every field's light before it
+// reached a near-black page. This costs nothing in accessibility terms: the
+// WCAG contrast gate measures the SURFACE compositor, which never calls this
+// file. It is purely a look decision about how much you can see through.
+const float ORB_CORE_ALPHA = 0.55;
 
 // Falloff of the Fresnel term from limb to centre.
 //

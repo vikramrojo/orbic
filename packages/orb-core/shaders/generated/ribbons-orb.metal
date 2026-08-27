@@ -168,7 +168,12 @@ float3 field(float2 p, float t, float energy, float coherence, float warmth, flo
 
             // Soft halo for the field's overall glow, plus a tighter core so
             // each dot stays legible as a point instead of dissolving.
-            glow += (1.0 - smoothstep(0.0, radius * 2.2, d)) * 0.42 * weight;
+            // Halo radius and weight both raised: measured, this field had a
+            // peak/mean ratio of 46 — bright dots on almost pure black, so it
+            // read as very dark overall however bright the dots themselves
+            // were. Gain cannot fix that (the cores are already near 1.0 and
+            // would just clip); only coverage can, which is what the halo is.
+            glow += (1.0 - smoothstep(0.0, radius * 3.4, d)) * 0.58 * weight;
             cores += (1.0 - smoothstep(0.0, radius, d)) * weight;
         }
     }
@@ -253,7 +258,13 @@ constant float ORB_LIMB_FEATHER = 0.035;
 
 // How transparent the orb is face-on. The limb always reaches full density,
 // so this is what makes the middle read as something you can see into.
-constant float ORB_CORE_ALPHA = 0.42;
+//
+// Raised from 0.42, which measured as a mean alpha of 0.52 across the disc —
+// i.e. the orb was swallowing roughly half of every field's light before it
+// reached a near-black page. This costs nothing in accessibility terms: the
+// WCAG contrast gate measures the SURFACE compositor, which never calls this
+// file. It is purely a look decision about how much you can see through.
+constant float ORB_CORE_ALPHA = 0.55;
 
 // Falloff of the Fresnel term from limb to centre.
 //

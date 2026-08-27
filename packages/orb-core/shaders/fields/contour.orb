@@ -98,7 +98,7 @@ vec3 field(vec2 p, float t, float energy, float coherence, float warmth, float p
     float bandIndex = floor(height * bandCount);
     float terrace = 0.5 + 0.5 * sin(bandIndex * 1.3 + clock * 0.25);
 
-    float amplitude = mix(0.28, 1.0, energy);
+    float amplitude = mix(0.40, 1.0, energy);
 
     // Warmth is authored, not remapped: no field in this lineage has a native
     // warmth concept (docs/shader-abi.md), so the palette is original work.
@@ -106,8 +106,17 @@ vec3 field(vec2 p, float t, float energy, float coherence, float warmth, float p
     vec3 warm = vec3(0.88, 0.54, 0.24);
     vec3 tint = mix(cool, warm, warmth);
 
-    vec3 col = tint * bloom * 0.22
-             + mix(tint, vec3(1.0), 0.3) * line * (0.45 + 0.35 * terrace);
+    // Brightness note: an earlier pass capped this field hard, on the theory
+    // that the WCAG contrast gate would reject it. That gate measures the
+    // SURFACE render — after surface.orb's 2.3x gain and knee damping — so
+    // the cap was fighting a check that was already damping the output, and
+    // it left this field markedly darker on an Orb than the ported fields.
+    // Measured and lifted back toward chladni/silk.
+    // The bloom carries most of the lift: it covers far more area than the
+    // line does, so raising it brightens the field without driving the
+    // line's core past 1.0 and flattening it.
+    vec3 col = tint * bloom * 0.62
+             + mix(tint, vec3(1.0), 0.3) * line * (0.55 + 0.40 * terrace);
     col *= amplitude;
 
     // Grain, matching the house convention in the other fields.

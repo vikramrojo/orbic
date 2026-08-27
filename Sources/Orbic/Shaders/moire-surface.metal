@@ -110,7 +110,7 @@ float3 field(float2 p, float t, float energy, float coherence, float warmth, flo
     float envelope = smoothstep(0.18, 0.82, interference);
     float fine = interference;
 
-    float amplitude = mix(0.26, 1.0, energy);
+    float amplitude = mix(0.40, 1.0, energy);
 
     // Warmth is authored, not remapped: no field in this lineage has a native
     // warmth concept (docs/shader-abi.md), so the palette is original work.
@@ -118,7 +118,18 @@ float3 field(float2 p, float t, float energy, float coherence, float warmth, flo
     float3 warm = float3(0.87, 0.53, 0.25);
     float3 tint = mix(cool, warm, warmth);
 
-    float3 col = tint * envelope * 0.5 + mix(tint, float3(1.0), 0.28) * fine * 0.22;
+    // Brightness note: an earlier pass capped this field hard, on the theory
+    // that the WCAG contrast gate would reject it. That gate measures the
+    // SURFACE render — after surface.orb's 2.3x gain and knee damping — so
+    // the cap was fighting a check that was already damping the output, and
+    // it left this field markedly darker on an Orb than the ported fields.
+    // Measured and lifted back toward chladni/silk.
+    // The envelope is the wide beat band and covers most of the frame; the
+    // fine term is the grating texture on top. Lifting the envelope raises
+    // the field's floor, which is what was actually missing.
+    // 1.85 was measured clipping — peak hit exactly 1.000, which flattens the
+    // brightest bands into featureless white. 1.45 keeps the headroom.
+    float3 col = tint * envelope * 1.45 + mix(tint, float3(1.0), 0.28) * fine * 0.48;
     col *= amplitude;
 
     // Grain, matching the house convention in the other fields.

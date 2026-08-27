@@ -169,7 +169,12 @@ vec3 field(vec2 p, float t, float energy, float coherence, float warmth, float p
 
             // Soft halo for the field's overall glow, plus a tighter core so
             // each dot stays legible as a point instead of dissolving.
-            glow += (1.0 - smoothstep(0.0, radius * 2.2, d)) * 0.42 * weight;
+            // Halo radius and weight both raised: measured, this field had a
+            // peak/mean ratio of 46 — bright dots on almost pure black, so it
+            // read as very dark overall however bright the dots themselves
+            // were. Gain cannot fix that (the cores are already near 1.0 and
+            // would just clip); only coverage can, which is what the halo is.
+            glow += (1.0 - smoothstep(0.0, radius * 3.4, d)) * 0.58 * weight;
             cores += (1.0 - smoothstep(0.0, radius, d)) * weight;
         }
     }
